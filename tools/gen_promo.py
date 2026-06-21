@@ -72,7 +72,7 @@ def main():
     d.rectangle([74, 268, 74 + 360, 276], fill=GREEN)
 
     tag = font("bahnschrift.ttf", 40)
-    d.text((74, 300), "Land navigation when GPS goes dark", font=tag, fill=GRAY)
+    d.text((74, 300), "Find your target. Find your way back.", font=tag, fill=GRAY)
 
     # MGRS readout in mono, like the watch shows
     mono = font("consola.ttf", 46)
@@ -81,7 +81,7 @@ def main():
 
     # Feature chips
     chip = font("bahnschrift.ttf", 26)
-    chips = ["Target location", "Resection", "Dead reckoning"]
+    chips = ["Find a target", "Mark your car", "Navigate back"]
     x = 74
     for c in chips:
         w = d.textlength(c, font=chip)

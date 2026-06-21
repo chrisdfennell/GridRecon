@@ -2,7 +2,7 @@
 
 Assets live in `assets/`:
 - `icon_1024.png` — app/store icon (source; the 40px launcher is in resources)
-- `promo_banner.png` — 1280×640 marketing banner (the feature chips include roadmap items)
+- `promo_banner.png` — 1280×640 marketing banner
 - Device screenshots — capture from the simulator (home / Find-a-target / result)
 
 ---
