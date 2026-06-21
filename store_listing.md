@@ -7,7 +7,11 @@ Store assets live in `assets/` (regenerate with `tools/gen_store_assets.py` and
 - `device_icon_24bit.png` — 128×128 device store icon, 24-bit colour
 - `device_icon_64color.png` — 128×128 device store icon, reduced to 64 colours
 - `icon_1024.png` — hi-res source of the launcher icon
-- Screen images — still to capture from the simulator (home / Find-a-target / result), < 150 KB each
+- Screen images (280×280 native captures, < 150 KB each, via `tools/savescreenshot_scaled.ps1` run under **Windows PowerShell 5.1**):
+  - `screen_main.png` — home / live MGRS
+  - `screen_menu.png` — Tools menu
+  - `screen_menu2.png` — "Mark as…" name picker
+  - `screen_car.png` — Take me back (navigate to your car)
 
 ---
 
