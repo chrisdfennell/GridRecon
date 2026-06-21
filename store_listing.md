@@ -1,9 +1,13 @@
 # GridRecon — Connect IQ Store Listing
 
-Assets live in `assets/`:
-- `icon_1024.png` — app/store icon (source; the 40px launcher is in resources)
-- `promo_banner.png` — 1280×640 marketing banner
-- Device screenshots — capture from the simulator (home / Find-a-target / result)
+Store assets live in `assets/` (regenerate with `tools/gen_store_assets.py` and
+`tools/gen_promo.py` — each is verified against the store's exact specs):
+- `promo_banner.png` — 1440×720 hero image (≤ 2 MB)
+- `cover_image.png` — 500×500 Web/Mobile cover (< 300 KB)
+- `device_icon_24bit.png` — 128×128 device store icon, 24-bit colour
+- `device_icon_64color.png` — 128×128 device store icon, reduced to 64 colours
+- `icon_1024.png` — hi-res source of the launcher icon
+- Screen images — still to capture from the simulator (home / Find-a-target / result), < 150 KB each
 
 ---
 
