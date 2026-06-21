@@ -1,0 +1,37 @@
+# Connect IQ build outputs
+bin/
+*.prg
+*.iq
+*.prg.debug.xml
+
+# Private developer signing keys — NEVER commit these
+*.der
+*.pem
+*.key
+developer_key.der
+
+# Local build configuration (machine-specific JDK / SDK paths)
+build_config.json
+
+# IDE / editor local settings
+/.vscode/
+.settings/
+.project
+.pydevproject
+
+# Local Claude Code config (machine-specific paths / permissions)
+.claude/
+
+# Python caches (used by tools/gen_icon.py, tools/gen_promo.py)
+__pycache__/
+*.pyc
+
+# OS cruft
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Temp / logs
+*.tmp
+*.log
+/temp*

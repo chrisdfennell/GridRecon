@@ -1,0 +1,5 @@
+project.manifest = manifest.xml
+
+# Single base resource set. The UI is laid out relative to dc.getWidth()/getHeight()
+# so it scales across panel sizes without per-resolution overrides.
+base.resourcePath = resources

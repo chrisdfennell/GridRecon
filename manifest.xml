@@ -1,0 +1,58 @@
+<?xml version="1.0"?>
+<iq:manifest version="3" xmlns:iq="http://www.garmin.com/xml/connectiq">
+    <!--
+        GridRecon - a GPS-denied land-navigation toolkit. The native fenix/tactix
+        firmware already does GPS waypoint nav, MGRS display and sight-'n-go well,
+        so this app deliberately owns what firmware does NOT: computing grids and
+        bearings by hand (target location / call-for-fire), and (later) dead-
+        reckoning legs, resection and pace count - the things you fall back on when
+        GPS is off, jammed, or you are training map-and-compass.
+
+        Primary target is the Fenix 8 Solar 51mm (280x280 MIP, button-only). The
+        UI is laid out relative to dc.getWidth()/getHeight() and grids are drawn
+        with a fit-to-width helper (auto-shrink, then two-line fallback), so it
+        stays legible across every size below - from 280x280 down to the 156x156
+        Instinct 2S - with no per-device assets.
+    -->
+    <iq:application id="a1b2c3d4-e5f6-47a8-9b0c-1d2e3f405162"
+                   type="watch-app"
+                   name="@Strings.AppName"
+                   entry="GridReconApp"
+                   launcherIcon="@Drawables.LauncherIcon"
+                   minApiLevel="3.1.0">
+        <iq:products>
+            <!-- fenix / tactix / epix (full size) -->
+            <iq:product id="fenix8solar51mm"/>
+            <iq:product id="fenix8solar47mm"/>
+            <iq:product id="fenix847mm"/>
+            <iq:product id="fenix843mm"/>
+            <iq:product id="fenix7x"/>
+            <iq:product id="fenix7xpro"/>
+            <iq:product id="fenix7"/>
+            <iq:product id="fenix7pro"/>
+            <!-- small fenix -->
+            <iq:product id="fenix7s"/>
+            <iq:product id="fenix7spro"/>
+            <iq:product id="fenix6s"/>
+            <iq:product id="fenix6spro"/>
+            <!-- Instinct (small, rugged, tactical sibling) -->
+            <iq:product id="instinct2"/>
+            <iq:product id="instinct2s"/>
+            <iq:product id="instinct2x"/>
+            <iq:product id="instinctcrossover"/>
+            <iq:product id="instincte40mm"/>
+            <iq:product id="instincte45mm"/>
+            <!-- small Forerunner -->
+            <iq:product id="fr255s"/>
+            <iq:product id="fr255sm"/>
+            <iq:product id="fr55"/>
+        </iq:products>
+        <iq:permissions>
+            <iq:uses-permission id="Positioning"/>
+            <iq:uses-permission id="Sensor"/>
+        </iq:permissions>
+        <iq:languages>
+            <iq:language>eng</iq:language>
+        </iq:languages>
+    </iq:application>
+</iq:manifest>

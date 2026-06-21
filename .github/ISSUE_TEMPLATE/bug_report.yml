@@ -1,0 +1,70 @@
+name: Bug report
+description: Report something that looks wrong or doesn't work
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for taking the time to file a bug! Please fill out the details below.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the bug and what you expected to happen instead.
+      placeholder: The target grid is off by a few hundred metres from my map reading...
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device
+      description: Which Garmin device (or simulator device id)?
+      placeholder: fenix8solar51mm
+    validations:
+      required: true
+  - type: input
+    id: firmware
+    attributes:
+      label: Watch firmware version
+      placeholder: "16.22"
+    validations:
+      required: false
+  - type: input
+    id: sdk
+    attributes:
+      label: Connect IQ SDK version (if building locally)
+      placeholder: "9.2.0"
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Live position / MGRS grid
+        - Find a target (bearing + range → grid)
+        - Mark this spot / Take me back (navigation, arrow)
+        - Manage marks
+        - Number entry / button hints
+        - Layout / readability (small or monochrome screens)
+        - Other / not sure
+    validations:
+      required: false
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: How can we reproduce it?
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: false
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: Drag in simulator or photo screenshots if the issue is visual.
+    validations:
+      required: false

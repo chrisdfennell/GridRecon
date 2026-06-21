@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate:
+    name: Validate project
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check required files exist
+        run: |
+          set -e
+          missing=0
+          for f in manifest.xml monkey.jungle \
+                   source/GridReconApp.mc source/Geo.mc; do
+            if [ ! -f "$f" ]; then
+              echo "::error::Missing required file: $f"
+              missing=1
+            fi
+          done
+          [ "$missing" = "0" ] && echo "All required files present."
+          exit $missing
+
+      - name: Validate XML is well-formed
+        run: |
+          python3 - <<'PY'
+          import sys, glob, xml.dom.minidom as minidom
+          files = ["manifest.xml"] + glob.glob("resources*/**/*.xml", recursive=True)
+          bad = 0
+          for f in files:
+              try:
+                  minidom.parse(f)
+                  print(f"ok:    {f}")
+              except Exception as e:
+                  print(f"::error file={f}::{e}")
+                  bad += 1
+          sys.exit(1 if bad else 0)
+          PY
+
+  compile:
+    name: Compile (smoke test)
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/blackshadev/garmin-connectiq-tools:9.1.0
+    steps:
+      - uses: actions/checkout@v4
+
+      # The compile needs a developer key. If the GARMIN_DEVELOPER_KEY secret
+      # isn't set (e.g. on a fork), skip gracefully rather than fail the build.
+      - name: Check for developer key secret
+        id: keycheck
+        run: |
+          if [ -z "${{ secrets.GARMIN_DEVELOPER_KEY }}" ]; then
+            echo "has_key=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::GARMIN_DEVELOPER_KEY not set — skipping compile. Add it in repo Settings → Secrets to enable on-device compile validation."
+          else
+            echo "has_key=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Decode developer key
+        if: steps.keycheck.outputs.has_key == 'true'
+        run: echo "${{ secrets.GARMIN_DEVELOPER_KEY }}" | base64 -d > developer_key.der
+
+      # A single-device compile catches syntax/type errors (they are
+      # device-independent). release.yml builds the full device matrix on tag.
+      - name: Compile (fenix7 smoke test, warnings on)
+        if: steps.keycheck.outputs.has_key == 'true'
+        run: |
+          mkdir -p bin
+          java -jar /connectiq/bin/monkeybrains.jar \
+            -w \
+            -f monkey.jungle \
+            -y developer_key.der \
+            -o bin/GridRecon_ci.prg \
+            -d fenix7
