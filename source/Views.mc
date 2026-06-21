@@ -35,6 +35,11 @@ class MainView extends WatchUi.View {
         _hints.stop();
     }
 
+    //! Re-show the hints (called when a button is pressed on this screen).
+    public function bumpHints() as Void {
+        _hints.reset();
+    }
+
     public function onUpdate(dc as Dc) as Void {
         dc.setColor(Graphics.COLOR_TRANSPARENT, Graphics.COLOR_BLACK);
         dc.clear();
@@ -71,11 +76,15 @@ class MainView extends WatchUi.View {
     }
 }
 
-//! Home-screen input: START (or MENU) opens the tools menu.
+//! Home-screen input: START (or MENU) opens the tools menu. UP/DOWN just bring
+//! the hint back (they otherwise do nothing on this screen).
 class MainDelegate extends WatchUi.BehaviorDelegate {
 
-    public function initialize() {
+    private var _view as MainView;
+
+    public function initialize(view as MainView) {
         BehaviorDelegate.initialize();
+        _view = view;
     }
 
     public function onSelect() as Boolean {
@@ -85,6 +94,16 @@ class MainDelegate extends WatchUi.BehaviorDelegate {
 
     public function onMenu() as Boolean {
         openToolMenu();
+        return true;
+    }
+
+    public function onPreviousPage() as Boolean {
+        _view.bumpHints();
+        return true;
+    }
+
+    public function onNextPage() as Boolean {
+        _view.bumpHints();
         return true;
     }
 }
@@ -111,6 +130,11 @@ class ResultView extends WatchUi.View {
 
     public function onHide() as Void {
         _hints.stop();
+    }
+
+    //! Re-show the hints (called when a button is pressed on this screen).
+    public function bumpHints() as Void {
+        _hints.reset();
     }
 
     public function onUpdate(dc as Dc) as Void {
@@ -149,15 +173,28 @@ class ResultView extends WatchUi.View {
 }
 
 //! Result-screen input: START navigates to the computed target; BACK returns.
+//! UP/DOWN just bring the hints back.
 class ResultDelegate extends WatchUi.BehaviorDelegate {
 
+    private var _view as ResultView;
     private var _destLat as Double;
     private var _destLon as Double;
 
-    public function initialize(destLat as Double, destLon as Double) {
+    public function initialize(view as ResultView, destLat as Double, destLon as Double) {
         BehaviorDelegate.initialize();
+        _view = view;
         _destLat = destLat;
         _destLon = destLon;
+    }
+
+    public function onPreviousPage() as Boolean {
+        _view.bumpHints();
+        return true;
+    }
+
+    public function onNextPage() as Boolean {
+        _view.bumpHints();
+        return true;
     }
 
     public function onSelect() as Boolean {

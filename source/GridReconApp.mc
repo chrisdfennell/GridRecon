@@ -31,6 +31,6 @@ class GridReconApp extends Application.AppBase {
 
     public function getInitialView() as [WatchUi.Views] or [WatchUi.Views, WatchUi.InputDelegates] {
         var view = new $.MainView();
-        return [view, new $.MainDelegate()];
+        return [view, new $.MainDelegate(view)];
     }
 }

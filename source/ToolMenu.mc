@@ -82,7 +82,7 @@ class TargetLocationFlow {
         var dest = Geo.project(_fromLat, _fromLon, _azDeg, rangeM);
         var grid = Geo.latLonToMgrs(dest[0], dest[1]);
         var rv = new ResultView(grid, _azDeg, rangeM);
-        WatchUi.switchToView(rv, new ResultDelegate(dest[0], dest[1]), WatchUi.SLIDE_LEFT);
+        WatchUi.switchToView(rv, new ResultDelegate(rv, dest[0], dest[1]), WatchUi.SLIDE_LEFT);
     }
 }
 
