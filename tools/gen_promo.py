@@ -1,7 +1,11 @@
 """Generate promotional graphics for GridRecon.
 
 Outputs (in assets/):
-  promo_banner.png   1280x640  - hero/marketing banner
+  promo_banner.png   1440x720  - Connect IQ Store hero image (must be 1440x720,
+                                 <= 2 MB) and the README banner.
+
+The design is composed at 1280x640 (a clean 2:1 grid) and scaled to the 1440x720
+store spec on save - same aspect ratio, so nothing stretches.
 """
 import os
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
@@ -100,9 +104,12 @@ def main():
     except Exception:
         pass
 
+    # Scale the 1280x640 composition up to the 1440x720 store hero spec.
+    hero = img.convert("RGB").resize((1440, 720), Image.LANCZOS)
     out = os.path.join(HERE, "assets", "promo_banner.png")
-    img.convert("RGB").save(out)
-    print("wrote", out)
+    hero.save(out, optimize=True)
+    kb = os.path.getsize(out) / 1024.0
+    print("wrote {}  ({}x{}, {:.0f} KB)".format(out, hero.width, hero.height, kb))
 
 if __name__ == "__main__":
     main()
