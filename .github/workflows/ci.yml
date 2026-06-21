@@ -11,7 +11,7 @@ jobs:
     name: Validate project
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Check required files exist
         run: |
@@ -49,7 +49,7 @@ jobs:
     container:
       image: ghcr.io/blackshadev/garmin-connectiq-tools:9.1.0
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # The compile needs a developer key. If the GARMIN_DEVELOPER_KEY secret
       # isn't set (e.g. on a fork), skip gracefully rather than fail the build.
