@@ -1,7 +1,49 @@
 import Toybox.Graphics;
 import Toybox.Lang;
 import Toybox.Math;
+import Toybox.System;
+import Toybox.Timer;
 import Toybox.WatchUi;
+
+//! How long the non-essential ("timed") button hints stay up after a screen
+//! appears, before fading so the data stands alone.
+const HINT_MS = 10000;
+
+//! When the current screen's timed hints started showing (ms, System.getTimer()).
+var gHintShownAt as Number = 0;
+
+//! True while the timed hints should still be drawn.
+function timedHintsVisible() as Boolean {
+    return (System.getTimer() - $.gHintShownAt) < HINT_MS;
+}
+
+//! A view that shows timed hints holds one of these: call reset() in onShow()
+//! and stop() in onHide(). It restarts the 10 s window and schedules the single
+//! redraw that makes the hints disappear when the window ends.
+class HintTimer {
+    private var _timer as Timer.Timer?;
+
+    public function initialize() {
+    }
+
+    public function reset() as Void {
+        $.gHintShownAt = System.getTimer();
+        stop();
+        _timer = new Timer.Timer();
+        _timer.start(method(:onExpire), HINT_MS, false);
+    }
+
+    public function stop() as Void {
+        if (_timer != null) {
+            _timer.stop();
+            _timer = null;
+        }
+    }
+
+    public function onExpire() as Void {
+        WatchUi.requestUpdate();
+    }
+}
 
 //! Draw a button hint: a short label at the screen rim, beside a physical button,
 //! with a small marker pointing out to that button. Positions follow the
@@ -10,8 +52,13 @@ import Toybox.WatchUi;
 //!
 //! @param yFrac  vertical position as a fraction of height (START ~0.32, BACK ~0.68)
 //! @param right  true for a right-edge button, false for a left-edge button
+//! @param timed  true to fade with the hint timer; false for always-on
+//!               confirm / cancel / back hints (so you can always exit a screen)
 function drawButtonHint(dc as Dc, yFrac as Float, right as Boolean,
-                        label as String, color as Graphics.ColorType) as Void {
+                        label as String, color as Graphics.ColorType, timed as Boolean) as Void {
+    if (timed && !timedHintsVisible()) {
+        return;
+    }
     var w = dc.getWidth();
     var h = dc.getHeight();
     var cx = w / 2;

@@ -229,8 +229,8 @@ class ConfirmView extends WatchUi.View {
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, cy, Graphics.FONT_SMALL, _prompt,
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
-        drawButtonHint(dc, 0.32, true, "CONFIRM", Graphics.COLOR_WHITE);
-        drawButtonHint(dc, 0.68, true, "BACK", Graphics.COLOR_LT_GRAY);
+        drawButtonHint(dc, 0.32, true, "CONFIRM", Graphics.COLOR_WHITE, false);
+        drawButtonHint(dc, 0.68, true, "BACK", Graphics.COLOR_LT_GRAY, false);
     }
 }
 

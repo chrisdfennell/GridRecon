@@ -19,6 +19,7 @@ class NumberInputView extends WatchUi.View {
     private var _suffix as String;     // drawn after the big number, e.g. "°" or " m"
     private var _padWidth as Number;   // zero-pad the number to this width (0 = none)
     private var _action as String;     // START button hint, e.g. "NEXT" or "DONE"
+    private var _hints as HintTimer = new HintTimer();
 
     public function initialize(prompt as String, value as Number, min as Number, max as Number,
                                step as Number, wrap as Boolean, suffix as String,
@@ -33,6 +34,19 @@ class NumberInputView extends WatchUi.View {
         _suffix = suffix;
         _padWidth = padWidth;
         _action = action;
+    }
+
+    public function onShow() as Void {
+        _hints.reset();
+    }
+
+    public function onHide() as Void {
+        _hints.stop();
+    }
+
+    //! Bring the hints back (e.g. when a button is pressed during entry).
+    public function bumpHints() as Void {
+        _hints.reset();
     }
 
     public function getValue() as Number {
@@ -76,10 +90,10 @@ class NumberInputView extends WatchUi.View {
             Graphics.TEXT_JUSTIFY_CENTER);
 
         // Button hints: + / - on the UP / DOWN buttons (left), action + back (right).
-        drawButtonHint(dc, 0.47, false, "+", Graphics.COLOR_WHITE);
-        drawButtonHint(dc, 0.67, false, "-", Graphics.COLOR_WHITE);
-        drawButtonHint(dc, 0.32, true, _action, Graphics.COLOR_WHITE);
-        drawButtonHint(dc, 0.68, true, "BACK", Graphics.COLOR_LT_GRAY);
+        drawButtonHint(dc, 0.47, false, "+", Graphics.COLOR_WHITE, true);       // timed
+        drawButtonHint(dc, 0.67, false, "-", Graphics.COLOR_WHITE, true);       // timed
+        drawButtonHint(dc, 0.32, true, _action, Graphics.COLOR_WHITE, true);    // timed
+        drawButtonHint(dc, 0.68, true, "BACK", Graphics.COLOR_LT_GRAY, false);  // always-on
     }
 }
 
@@ -106,6 +120,7 @@ class NumberInputDelegate extends WatchUi.BehaviorDelegate {
         if (k == WatchUi.KEY_UP || k == WatchUi.KEY_DOWN) {
             _dir = (k == WatchUi.KEY_UP) ? 1 : -1;
             _ticks = 0;
+            _view.bumpHints();              // keep the hints up while you're dialing
             _view.adjust(_dir, 1);          // immediate response on the first press
             WatchUi.requestUpdate();
             startRepeat();

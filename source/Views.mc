@@ -1,6 +1,8 @@
 import Toybox.Graphics;
 import Toybox.Lang;
 import Toybox.Position;
+import Toybox.System;
+import Toybox.Timer;
 import Toybox.WatchUi;
 
 //! Current fix as [latDeg, lonDeg] Doubles, or null if we have no usable fix yet.
@@ -17,8 +19,20 @@ function currentLatLon() as Array<Double>? {
 //! Lays out around the grid block so it stays legible from 280px down to 156px.
 class MainView extends WatchUi.View {
 
+    // The "TOOLS" hint fades after the shared hint window; it comes back each
+    // time you return to the home screen.
+    private var _hints as HintTimer = new HintTimer();
+
     public function initialize() {
         View.initialize();
+    }
+
+    public function onShow() as Void {
+        _hints.reset();
+    }
+
+    public function onHide() as Void {
+        _hints.stop();
     }
 
     public function onUpdate(dc as Dc) as Void {
@@ -36,7 +50,7 @@ class MainView extends WatchUi.View {
         dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, (h * 0.13).toNumber(), Graphics.FONT_XTINY, "GRIDRECON", vc);
 
-        drawButtonHint(dc, 0.32, true, "TOOLS", Graphics.COLOR_WHITE);
+        drawButtonHint(dc, 0.32, true, "TOOLS", Graphics.COLOR_WHITE, true);
 
         var ll = currentLatLon();
         if (ll == null) {
@@ -82,6 +96,7 @@ class ResultView extends WatchUi.View {
     private var _targetGrid as String;
     private var _azDeg as Double;
     private var _rangeM as Double;
+    private var _hints as HintTimer = new HintTimer();
 
     public function initialize(targetGrid as String, azDeg as Double, rangeM as Double) {
         View.initialize();
@@ -90,6 +105,13 @@ class ResultView extends WatchUi.View {
         _rangeM = rangeM;
     }
 
+    public function onShow() as Void {
+        _hints.reset();
+    }
+
+    public function onHide() as Void {
+        _hints.stop();
+    }
 
     public function onUpdate(dc as Dc) as Void {
         dc.setColor(Graphics.COLOR_TRANSPARENT, Graphics.COLOR_BLACK);
@@ -121,8 +143,8 @@ class ResultView extends WatchUi.View {
         dc.drawText(cx, gy + half + xtinyH * 3 / 2 + 4, Graphics.FONT_XTINY,
             "walk back on " + back.toNumber().format("%03d") + "°", vc);
 
-        drawButtonHint(dc, 0.32, true, "GO", Graphics.COLOR_WHITE);
-        drawButtonHint(dc, 0.68, true, "BACK", Graphics.COLOR_LT_GRAY);
+        drawButtonHint(dc, 0.32, true, "GO", Graphics.COLOR_WHITE, true);     // timed
+        drawButtonHint(dc, 0.68, true, "BACK", Graphics.COLOR_LT_GRAY, false); // always-on
     }
 }
 

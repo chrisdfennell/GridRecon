@@ -49,7 +49,7 @@ class ReturnNavView extends WatchUi.View {
         var cy = h / 2;
         var vc = Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER;
 
-        drawButtonHint(dc, 0.68, true, "EXIT", Graphics.COLOR_LT_GRAY);
+        drawButtonHint(dc, 0.68, true, "EXIT", Graphics.COLOR_LT_GRAY, false);
 
         var ll = currentLatLon();
         if (ll == null) {
