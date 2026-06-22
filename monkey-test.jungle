@@ -1,0 +1,8 @@
+# Unit-test build. Identical to monkey.jungle but also pulls in source-test/, the
+# (:test)-annotated suites. Build with the -t / --unit-test flag (see
+# tools/runtests.ps1) so the test runner is linked in. Production builds use the
+# plain monkey.jungle and never see this code.
+project.manifest = manifest.xml
+
+base.sourcePath = source;source-test
+base.resourcePath = resources

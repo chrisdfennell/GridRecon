@@ -79,3 +79,17 @@ jobs:
             -y developer_key.der \
             -o bin/GridRecon_ci.prg \
             -d fenix7
+
+      # Compile the unit-test build (-t links in source-test/ and the test
+      # runner). Executing the tests needs the GUI simulator, so CI only proves
+      # the suite still compiles; run it locally with tools/runtests.ps1.
+      - name: Compile unit-test build (warnings on)
+        if: steps.keycheck.outputs.has_key == 'true'
+        run: |
+          java -jar /connectiq/bin/monkeybrains.jar \
+            -t \
+            -w \
+            -f monkey-test.jungle \
+            -y developer_key.der \
+            -o bin/GridRecon_test.prg \
+            -d fenix7

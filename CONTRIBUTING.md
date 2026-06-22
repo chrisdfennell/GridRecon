@@ -57,6 +57,24 @@ Edit it if you need to pin a specific SDK or JDK path.
 
 ## Testing your changes
 
+### Unit tests (the Geo engine)
+
+The geodesy + MGRS math in `source/Geo.mc` is pinned by an automated suite in
+`source-test/GeoTest.mc` — golden MGRS strings from the GEOTRANS-backed Python
+`mgrs` library, plus `project()`/`inverse()` round-trips. Run it in the simulator:
+
+```powershell
+.\tools\runtests.ps1                     # build the -t target and run all tests
+.\tools\runtests.ps1 -Device instinct2s  # run on another device (math is device-independent)
+```
+
+The tests live in `source-test/` and are pulled in only by `monkey-test.jungle`
+(via the `-t` flag), so they never ship in a production build. CI compiles this
+target to keep the suite from breaking; execution is local because it needs the
+GUI simulator. **If you touch `Geo.mc`, add or update a case here.**
+
+### On-device / layout checks
+
 GridRecon targets the **Fenix 8 Solar 51mm** primarily, but the small/monochrome
 **Instinct 2S** is the layout stress test. Please verify on both:
 
@@ -81,7 +99,7 @@ Things to check in the simulator:
 ## Pull request process
 
 1. Fork and branch off `main` (e.g. `feature/grid-to-grid` or `fix/spinner-overlap`).
-2. Confirm it **builds clean** (`.\build.ps1` with no warnings) and runs in the simulator.
+2. Confirm it **builds clean** (`.\build.ps1` with no warnings) and runs in the simulator. If you touched `Geo.mc`, run `.\tools\runtests.ps1` and make sure the suite is green.
 3. Fill out the PR template — devices tested, and before/after screenshots for any visual change.
 4. Keep PRs focused — one logical change each.
 5. Update `CHANGELOG.md` for user-facing changes.
