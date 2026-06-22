@@ -1,3 +1,4 @@
+import Toybox.Attention;
 import Toybox.Graphics;
 import Toybox.Lang;
 import Toybox.Math;
@@ -15,6 +16,7 @@ class ReturnNavView extends WatchUi.View {
     private var _lat as Double;
     private var _lon as Double;
     private var _timer as Timer.Timer?;
+    private var _arrivedBuzzed as Boolean = false;   // vibrate once per arrival
 
     public function initialize(name as String, lat as Double, lon as Double) {
         View.initialize();
@@ -24,8 +26,15 @@ class ReturnNavView extends WatchUi.View {
     }
 
     public function onShow() as Void {
+        gpsAcquire();
         _timer = new Timer.Timer();
         _timer.start(method(:onTick), 1000, true);
+        // Keep the magnetometer powered so the heading arrow has data: on some
+        // devices Sensor.getInfo().heading is only populated while sensor events
+        // are enabled. The handler itself is a no-op; we read getInfo() in onUpdate.
+        if (Sensor has :enableSensorEvents) {
+            Sensor.enableSensorEvents(method(:onSensorEvent));
+        }
     }
 
     public function onHide() as Void {
@@ -33,10 +42,18 @@ class ReturnNavView extends WatchUi.View {
             _timer.stop();
             _timer = null;
         }
+        if (Sensor has :enableSensorEvents) {
+            Sensor.enableSensorEvents(null);
+        }
+        gpsRelease();
     }
 
     public function onTick() as Void {
         WatchUi.requestUpdate();
+    }
+
+    public function onSensorEvent(info as Sensor.Info) as Void {
+        // Intentionally empty - see onShow().
     }
 
     public function onUpdate(dc as Dc) as Void {
@@ -66,11 +83,19 @@ class ReturnNavView extends WatchUi.View {
         dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, (h * 0.12).toNumber(), Graphics.FONT_XTINY, _name.toUpper(), vc);
 
-        // Arrived.
+        // Arrived: buzz once so you don't have to be watching the screen.
         if (dist < 12.0d) {
+            if (!_arrivedBuzzed && (Attention has :vibrate)) {
+                Attention.vibrate([new Attention.VibeProfile(75, 400)] as Array<Attention.VibeProfile>);
+            }
+            _arrivedBuzzed = true;
             dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
             dc.drawText(cx, cy, Graphics.FONT_MEDIUM, "You're here", vc);
             return;
+        }
+        // Re-arm the arrival buzz once you've clearly moved away again.
+        if (dist > 25.0d) {
+            _arrivedBuzzed = false;
         }
 
         var minDim = (w < h) ? w : h;
@@ -83,12 +108,16 @@ class ReturnNavView extends WatchUi.View {
             dc.drawText(cx, arrowCy, Graphics.FONT_XTINY, "walk a few steps\nto aim the arrow", vc);
         }
 
-        // Distance (the big number) and the bearing fallback.
+        // Distance (the big number) and the bearing fallback. The bearing is shown
+        // in magnetic (the number to dial on a compass) when a declination offset is
+        // set, true north otherwise.
+        var steer = Settings.trueToMag(brng);
+        var ref = Settings.hasDeclination() ? "°M" : "°";
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, (cy + h * 0.24).toNumber(), Graphics.FONT_NUMBER_MEDIUM, formatDistance(dist), vc);
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, (cy + h * 0.40).toNumber(), Graphics.FONT_XTINY,
-            "bearing " + brng.toNumber().format("%03d") + "°", vc);
+            "bearing " + steer.toNumber().format("%03d") + ref, vc);
     }
 
     //! Filled arrowhead pointing at a relative bearing (0 = straight up).
@@ -111,15 +140,25 @@ class ReturnNavView extends WatchUi.View {
     }
 }
 
-//! Heading in degrees true: compass first (works standing still, true-north
-//! referenced), GPS course as the moving fallback. Null if neither is available.
+//! Below this ground speed (~3.6 km/h) the GPS course is just noise, so we don't
+//! steer the arrow with it - the compass takes over, or we ask for a few steps.
+const MOVE_MIN_MPS = 1.0d;
+
+//! Heading in degrees TRUE - the same frame as the bearing to the target, so the
+//! arrow's relative angle is correct.
+//!
+//! The magnetometer compass works standing still and is tried first. Its reading is
+//! magnetic, so we add the declination offset to bring it to true (with no offset
+//! set, this is a no-op). The GPS course is already true north but is only
+//! trustworthy while moving, so it's a fallback gated on a walking speed. Null when
+//! neither is usable - the caller then shows the "walk a few steps" hint.
 function headingDeg() as Double? {
     var s = Sensor.getInfo();
     if (s != null && s.heading != null) {
-        return norm360(s.heading.toDouble() * Geo.RAD2DEG);
+        return Settings.magToTrue(s.heading.toDouble() * Geo.RAD2DEG);
     }
     var info = $.gLastInfo;
-    if (info != null && info.heading != null) {
+    if (info != null && info.heading != null && info.speed != null && info.speed >= MOVE_MIN_MPS) {
         return norm360(info.heading.toDouble() * Geo.RAD2DEG);
     }
     return null;
@@ -131,8 +170,15 @@ function norm360(d as Double) as Double {
     return d;
 }
 
-//! "420 m" under a km, "1.4 km" above.
+//! Distance in the user's units: metric "420 m" / "1.4 km", imperial "460 yd" / "0.9 mi".
 function formatDistance(m as Double) as String {
+    if (Settings.useImperial()) {
+        var yd = m / 0.9144d;
+        if (yd < 1760.0d) {
+            return yd.format("%.0f") + " yd";
+        }
+        return (m / 1609.344d).format("%.1f") + " mi";
+    }
     if (m < 1000.0d) {
         return m.format("%.0f") + " m";
     }

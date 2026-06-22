@@ -2,10 +2,13 @@ import Toybox.Graphics;
 import Toybox.Lang;
 import Toybox.Position;
 import Toybox.System;
+import Toybox.Time;
 import Toybox.Timer;
 import Toybox.WatchUi;
 
-//! Current fix as [latDeg, lonDeg] Doubles, or null if we have no usable fix yet.
+//! Current fix as [latDeg, lonDeg] Doubles, or null if we have no position at all.
+//! NOTE: this returns a cached last-known position too - use hasFreshFix() to tell
+//! whether it's trustworthy enough to compute a mark/target from.
 function currentLatLon() as Array<Double>? {
     var info = $.gLastInfo;
     if (info == null || info.position == null) {
@@ -13,6 +16,49 @@ function currentLatLon() as Array<Double>? {
     }
     var d = info.position.toDegrees();   // [lat, lon] as Doubles
     return [d[0].toDouble(), d[1].toDouble()] as Array<Double>;
+}
+
+//! Quality of the latest fix (NOT_AVAILABLE if we have none yet).
+function fixAccuracy() as Position.Quality {
+    var info = $.gLastInfo;
+    if (info == null) {
+        return Position.QUALITY_NOT_AVAILABLE;
+    }
+    return info.accuracy;
+}
+
+//! Seconds since the latest fix was taken, or -1 if unknown. With continuous GPS
+//! this is normally 0-2 s; it only grows when fixes stop arriving (indoors, canyon).
+function fixAgeSec() as Number {
+    var info = $.gLastInfo;
+    if (info == null || info.when == null) {
+        return -1;
+    }
+    return Time.now().value() - info.when.value();
+}
+
+//! True if we have a fresh, usable fix - not just a cached last-known position.
+//! The compute tools gate on this so a mark/target isn't built on stale data.
+function hasFreshFix() as Boolean {
+    return fixAccuracy() >= Position.QUALITY_POOR;
+}
+
+//! Short status word for the current fix quality.
+function gpsText(q as Position.Quality) as String {
+    if (q == Position.QUALITY_GOOD)       { return "GPS good"; }
+    if (q == Position.QUALITY_USABLE)     { return "GPS ok"; }
+    if (q == Position.QUALITY_POOR)       { return "GPS poor"; }
+    if (q == Position.QUALITY_LAST_KNOWN) { return "last known"; }
+    return "no GPS";
+}
+
+//! Status colour: white when trustworthy, yellow as a caution. (Green is avoided -
+//! it maps to the background and vanishes on 1-bit Instinct displays.)
+function gpsColor(q as Position.Quality) as Graphics.ColorType {
+    if (q == Position.QUALITY_GOOD || q == Position.QUALITY_USABLE) {
+        return Graphics.COLOR_WHITE;
+    }
+    return Graphics.COLOR_YELLOW;
 }
 
 //! Home screen: where you are, in plain language, plus how to open the tools.
@@ -29,10 +75,12 @@ class MainView extends WatchUi.View {
 
     public function onShow() as Void {
         _hints.reset();
+        gpsAcquire();
     }
 
     public function onHide() as Void {
         _hints.stop();
+        gpsRelease();
     }
 
     //! Re-show the hints (called when a button is pressed on this screen).
@@ -50,6 +98,7 @@ class MainView extends WatchUi.View {
         var cy = h / 2;
         var vc = Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER;
         var tinyH = dc.getFontHeight(Graphics.FONT_TINY);
+        var xtinyH = dc.getFontHeight(Graphics.FONT_XTINY);
 
         // App name near the top arc.
         dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
@@ -66,13 +115,26 @@ class MainView extends WatchUi.View {
             return;
         }
 
-        // Grid is the hero; place the label above it and the hint below it.
-        var grid = Geo.latLonToMgrs(ll[0], ll[1]);
-        var half = drawGridFitted(dc, cx, cy, grid, Graphics.COLOR_WHITE, (w * 0.9).toNumber());
+        // Grid is the hero; place the label above it and the GPS status below it.
+        // When the fix is only last-known (stale cache), dim the grid so it doesn't
+        // read as a trustworthy live position.
+        var q = fixAccuracy();
+        var fresh = hasFreshFix();
+        var gridColor = fresh ? Graphics.COLOR_WHITE : Graphics.COLOR_LT_GRAY;
+        var grid = Geo.mgrsAtPrecision(ll[0], ll[1], Settings.gridDigits());
+        var half = drawGridFitted(dc, cx, cy, grid, gridColor, (w * 0.9).toNumber());
 
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, cy - half - tinyH / 2, Graphics.FONT_TINY, "You are at", vc);
 
+        // GPS status line: quality, plus fix age when fixes have stopped arriving.
+        var status = gpsText(q);
+        var age = fixAgeSec();
+        if (fresh && age > 10) {
+            status += " · " + age.format("%d") + "s old";
+        }
+        dc.setColor(gpsColor(q), Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, cy + half + xtinyH / 2 + 4, Graphics.FONT_XTINY, status, vc);
     }
 }
 
@@ -158,16 +220,21 @@ class ResultView extends WatchUi.View {
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, gy - half - tinyH / 2, Graphics.FONT_TINY, "Target is at", vc);
 
+        // "M" marks the bearings as magnetic (a declination offset is in effect);
+        // with no offset everything is true north and the suffix is dropped.
+        var ref = Settings.hasDeclination() ? "M" : "";
+
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        var entered = "bearing " + _azDeg.toNumber().format("%03d") + "°  ·  " + _rangeM.toNumber().format("%d") + " m";
+        var entered = "bearing " + _azDeg.toNumber().format("%03d") + "°" + ref + "  ·  " + formatDistance(_rangeM);
         dc.drawText(cx, gy + half + xtinyH / 2 + 2, Graphics.FONT_XTINY, entered, vc);
 
         var back = Geo.backAzimuth(_azDeg);
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, gy + half + xtinyH * 3 / 2 + 4, Graphics.FONT_XTINY,
-            "walk back on " + back.toNumber().format("%03d") + "°", vc);
+            "walk back on " + back.toNumber().format("%03d") + "°" + ref, vc);
 
-        drawButtonHint(dc, 0.32, true, "GO", Graphics.COLOR_WHITE, true);     // timed
+        drawButtonHint(dc, 0.32, true, "GO", Graphics.COLOR_WHITE, true);      // START, timed
+        drawButtonHint(dc, 0.47, false, "SAVE", Graphics.COLOR_WHITE, true);   // UP, timed
         drawButtonHint(dc, 0.68, true, "BACK", Graphics.COLOR_LT_GRAY, false); // always-on
     }
 }
@@ -187,8 +254,10 @@ class ResultDelegate extends WatchUi.BehaviorDelegate {
         _destLon = destLon;
     }
 
+    //! UP saves the computed target as a mark (so you can return to it later);
+    //! DOWN just brings the hints back.
     public function onPreviousPage() as Boolean {
-        _view.bumpHints();
+        showMarkNameMenu(_destLat, _destLon);
         return true;
     }
 

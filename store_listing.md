@@ -60,6 +60,13 @@ Forerunner 255S / 55, Instinct 2 / 2S / 2X / E / Crossover.
 land nav, MGRS, UTM, grid, bearing, azimuth, compass, navigation, tactical,
 hunting, SAR, military, backcountry, call for fire, target
 
+## What's new — v1.1.0
+- **Go to a grid** — enter an MGRS grid and navigate straight to it (the inverse of Find-a-Target), seeded from your position so you only dial the digits that change.
+- **Magnetic declination** — set your local offset once and enter the magnetic bearing your compass reads; the app converts to true.
+- **GPS fix quality** — the home screen shows fix quality/age and the compute tools require a fresh fix.
+- **Save a target as a mark**, **grid precision** (1 m–10 km), **metric/imperial units**, and an **arrival buzz** in Take-me-back.
+- Smarter GPS power use and a true-north-referenced compass arrow.
+
 ## What's new — v1.0.0
 First release: Find-a-Target grid computation, live MGRS position, hold-to-repeat
 entry, and a responsive layout that scales across every supported screen.
@@ -70,4 +77,4 @@ entry, and a responsive layout that scales across every supported screen.
 ## Notes for reviewers / accuracy
 GridRecon uses GPS for *your* position. Its value is computing a *target's* grid
 without needing a fix at the target. The fully GPS-denied tools (resection,
-dead-reckoning) are roadmap items and are not claimed as present in v1.0.
+dead-reckoning) are roadmap items and are not claimed as present in v1.1.

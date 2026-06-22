@@ -31,11 +31,13 @@ cleanly from a 280×280 fenix down to a 156×156 monochrome Instinct.
 
 | Tool | What it's for |
 |---|---|
-| **Live position** | Your current location as a clean MGRS grid, auto-sized to your screen. |
-| **Find a target** | Enter the bearing + distance to anything you can see → get its MGRS grid, plus the back-azimuth to walk yourself home. The classic observer "polar plot" / call-for-fire. |
+| **Live position** | Your current location as a clean MGRS grid, auto-sized to your screen, with a GPS fix-quality indicator so you know it's trustworthy. |
+| **Find a target** | Enter the bearing + distance to anything you can see → get its MGRS grid, plus the back-azimuth to walk yourself home. The classic observer "polar plot" / call-for-fire. Save the result as a mark to return to it later. |
+| **Go to a grid** | Punch in an MGRS grid someone gives you and navigate straight to it — the inverse of "Find a target." Seeded from where you are, so you only dial the digits that change. |
 | **Mark this spot** | Save where you are under a name (Car, Camp, Trailhead, …). Persisted, so it survives closing the app — that's the "where'd I park?" magic. |
-| **Take me back** | Live navigation to a saved mark: a hybrid arrow (compass when still, GPS course when moving), the distance counting down, and the bearing as the always-true number. |
+| **Take me back** | Live navigation to a saved mark: a hybrid arrow (compass when still, GPS course when moving), the distance counting down, and the bearing to steer by. |
 | **Manage marks** | Review and delete saved marks. |
+| **Settings** | Magnetic declination (enter magnetic bearings), grid precision (1 m → 10 km), and metric/imperial units. |
 
 Every screen is **button-labelled** — small hints sit right next to the physical
 button that triggers them (e.g. `CONFIRM ►` by START), and number entry uses
@@ -49,7 +51,7 @@ It's the inverse of getting lost. Your watch knows where *you* are; GridRecon tu
 a direction and a distance into where *something else* is:
 
 1. **Your fix** — current position in WGS84 lat/lon.
-2. **Your aim** — the bearing (true north) and range you read off a compass + laser/pace.
+2. **Your aim** — the bearing and range you read off a compass + laser/pace.
 3. **Project** — a forward geodesic walks that distance along that bearing to the target's lat/lon.
 4. **Convert** — UTM (transverse Mercator, WGS84) → a standard MGRS grid string.
 5. **Result** — the target's grid + the back-azimuth (`bearing + 180°`).
@@ -57,9 +59,13 @@ a direction and a distance into where *something else* is:
 Steps 3–5 use no satellites. The grid engine (`source/Geo.mc`) is validated to the
 metre against the authoritative MGRS/GEOTRANS reference across both hemispheres.
 
-> **Field note:** the bearing you enter is treated as **true north**. Either set
-> your compass to a true-north reference, or apply your local declination first —
-> at 1 km, 1° of error is ~17 m on the ground.
+> **Field note — magnetic vs. true:** GridRecon computes in **true north** (what
+> maps and MGRS use). Set your local **declination** once under **Tools →
+> Declination** (East +, West −) and you can then enter the **magnetic** bearing
+> straight off your compass — the app converts it, marks those bearings with an
+> `M`, and shows the magnetic bearing to steer by in "Take me back." Leave it at
+> `0` to work purely in true north. At 1 km, 1° of error is ~17 m on the ground,
+> so getting declination right matters.
 
 ---
 
