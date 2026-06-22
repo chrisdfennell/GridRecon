@@ -2,31 +2,30 @@ import Toybox.Graphics;
 import Toybox.Lang;
 import Toybox.WatchUi;
 
-//! Build and show the tools menu. Called from the home screen.
+//! Build and show the tools menu. Called from the home screen. Routed through
+//! showMenu so it honours the buttons-only setting (custom list vs native Menu2).
 function openToolMenu() as Void {
-    var menu = new WatchUi.Menu2({:title => "Tools"});
-    menu.addItem(new WatchUi.MenuItem("Mark this spot", "save where you are", :mark, null));
-    menu.addItem(new WatchUi.MenuItem("Take me back", "navigate to a mark", :back, null));
-    menu.addItem(new WatchUi.MenuItem("Manage marks", "delete a mark", :manage, null));
-    menu.addItem(new WatchUi.MenuItem("Find a target", "where is that thing?", :target, null));
-    menu.addItem(new WatchUi.MenuItem("Go to a grid", "navigate to an MGRS grid", :gogrid, null));
-    menu.addItem(new WatchUi.MenuItem("Settings", "declination · grid · units", :settings, null));
-    menu.addItem(new WatchUi.MenuItem("Help", "how this works", :help, null));
-    menu.addItem(new WatchUi.MenuItem("About", null, :about, null));
-    WatchUi.pushView(menu, new ToolMenuDelegate(), WatchUi.SLIDE_LEFT);
+    var items = [
+        {"label" => "Mark this spot", "sub" => "save where you are",     "id" => :mark},
+        {"label" => "Take me back",   "sub" => "navigate to a mark",     "id" => :back},
+        {"label" => "Manage marks",   "sub" => "delete a mark",          "id" => :manage},
+        {"label" => "Find a target",  "sub" => "where is that thing?",   "id" => :target},
+        {"label" => "Go to a grid",   "sub" => "navigate to an MGRS grid", "id" => :gogrid},
+        {"label" => "Settings",       "sub" => "input · coords · units", "id" => :settings},
+        {"label" => "Help",           "sub" => "how this works",         "id" => :help},
+        {"label" => "About",          "sub" => null,                     "id" => :about}
+    ] as Array<Dictionary>;
+    showMenu("Tools", items, new ToolMenuHandler().method(:onChoose));
 }
 
-class ToolMenuDelegate extends WatchUi.Menu2InputDelegate {
+class ToolMenuHandler {
 
     public function initialize() {
-        Menu2InputDelegate.initialize();
     }
 
-    public function onSelect(item as WatchUi.MenuItem) as Void {
-        var id = item.getId();
+    public function onChoose(id as Object) as Void {
         if (id == :target) {
-            var flow = new TargetLocationFlow();
-            flow.start();
+            new TargetLocationFlow().start();
         } else if (id == :gogrid) {
             startGoToGrid();
         } else if (id == :mark) {
@@ -94,7 +93,7 @@ class TargetLocationFlow {
         // a magnetic bearing, so convert through the declination offset.
         var azTrue = Settings.magToTrue(_azMag);
         var dest = Geo.project(_fromLat, _fromLon, azTrue, rangeM);
-        var grid = Geo.mgrsAtPrecision(dest[0], dest[1], Settings.gridDigits());
+        var grid = formatPosition(dest[0], dest[1]);
         // ResultView shows the bearing as entered (magnetic) so it matches the compass.
         var rv = new ResultView(grid, _azMag, rangeM);
         WatchUi.switchToView(rv, new ResultDelegate(rv, dest[0], dest[1]), WatchUi.SLIDE_LEFT);
@@ -122,31 +121,79 @@ class DeclinationFlow {
     }
 }
 
-//! Settings submenu: declination, grid precision and units in one place so the
-//! top-level Tools list stays short.
+//! Settings submenu: input mode, coordinates, declination, grid precision and
+//! units in one place so the top-level Tools list stays short.
 function openSettingsMenu() as Void {
-    var menu = new WatchUi.Menu2({:title => "Settings"});
-    menu.addItem(new WatchUi.MenuItem("Declination", Settings.declLabel(), :decl, null));
-    menu.addItem(new WatchUi.MenuItem("Grid precision", Settings.gridLabel(), :grid, null));
-    menu.addItem(new WatchUi.MenuItem("Units", Settings.unitsLabel(), :units, null));
-    WatchUi.pushView(menu, new SettingsMenuDelegate(), WatchUi.SLIDE_LEFT);
+    var items = [
+        {"label" => "Input",          "sub" => Settings.inputLabel(), "id" => :input},
+        {"label" => "Coordinates",    "sub" => Settings.coordLabel(), "id" => :coord},
+        {"label" => "Declination",    "sub" => Settings.declLabel(),  "id" => :decl},
+        {"label" => "Grid precision", "sub" => Settings.gridLabel(),  "id" => :grid},
+        {"label" => "Units",          "sub" => Settings.unitsLabel(), "id" => :units}
+    ] as Array<Dictionary>;
+    showMenu("Settings", items, new SettingsHandler().method(:onChoose));
 }
 
-class SettingsMenuDelegate extends WatchUi.Menu2InputDelegate {
+class SettingsHandler {
 
     public function initialize() {
-        Menu2InputDelegate.initialize();
     }
 
-    public function onSelect(item as WatchUi.MenuItem) as Void {
-        var id = item.getId();
-        if (id == :decl) {
+    public function onChoose(id as Object) as Void {
+        if (id == :input) {
+            openInputMenu();
+        } else if (id == :coord) {
+            openCoordMenu();
+        } else if (id == :decl) {
             new DeclinationFlow().start();
         } else if (id == :grid) {
             new GridPrecisionFlow().start();
         } else if (id == :units) {
             openUnitsMenu();
         }
+    }
+}
+
+//! "Input": touch + buttons, or buttons only (which also switches menus to the
+//! custom button-driven list).
+function openInputMenu() as Void {
+    var items = [
+        {"label" => "Touch + buttons", "sub" => "default",          "id" => :touch},
+        {"label" => "Buttons only",    "sub" => "ignore the screen", "id" => :buttons}
+    ] as Array<Dictionary>;
+    showMenu("Input", items, new InputHandler().method(:onChoose));
+}
+
+class InputHandler {
+
+    public function initialize() {
+    }
+
+    public function onChoose(id as Object) as Void {
+        Settings.setButtonOnly(id == :buttons);
+        var v = new MessageView("Saved", "Input: " + Settings.inputLabel());
+        WatchUi.switchToView(v, new SimpleBackDelegate(), WatchUi.SLIDE_LEFT);
+    }
+}
+
+//! "Coordinates": show positions as MGRS grids or decimal lat/long.
+function openCoordMenu() as Void {
+    var items = [
+        {"label" => "MGRS",     "sub" => "military grid",   "id" => :mgrs},
+        {"label" => "Lat/Long", "sub" => "decimal degrees", "id" => :latlon}
+    ] as Array<Dictionary>;
+    showMenu("Coordinates", items, new CoordHandler().method(:onChoose));
+}
+
+class CoordHandler {
+
+    public function initialize() {
+    }
+
+    public function onChoose(id as Object) as Void {
+        Settings.setUseLatLon(id == :latlon);
+        var v = new MessageView("Saved", "Coordinates: " + Settings.coordLabel());
+        WatchUi.switchToView(v, new SimpleBackDelegate(), WatchUi.SLIDE_LEFT);
     }
 }
 
@@ -172,20 +219,20 @@ class GridPrecisionFlow {
 
 //! "Units": metric or imperial, applied to every distance the app shows or asks for.
 function openUnitsMenu() as Void {
-    var menu = new WatchUi.Menu2({:title => "Units"});
-    menu.addItem(new WatchUi.MenuItem("Metric", "m / km", :metric, null));
-    menu.addItem(new WatchUi.MenuItem("Imperial", "yd / mi", :imperial, null));
-    WatchUi.pushView(menu, new UnitsMenuDelegate(), WatchUi.SLIDE_LEFT);
+    var items = [
+        {"label" => "Metric",   "sub" => "m / km",  "id" => :metric},
+        {"label" => "Imperial", "sub" => "yd / mi", "id" => :imperial}
+    ] as Array<Dictionary>;
+    showMenu("Units", items, new UnitsHandler().method(:onChoose));
 }
 
-class UnitsMenuDelegate extends WatchUi.Menu2InputDelegate {
+class UnitsHandler {
 
     public function initialize() {
-        Menu2InputDelegate.initialize();
     }
 
-    public function onSelect(item as WatchUi.MenuItem) as Void {
-        Settings.setUseImperial(item.getId() == :imperial);
+    public function onChoose(id as Object) as Void {
+        Settings.setUseImperial(id == :imperial);
         var v = new MessageView("Saved", Settings.unitsLabel());
         WatchUi.switchToView(v, new SimpleBackDelegate(), WatchUi.SLIDE_LEFT);
     }
@@ -205,27 +252,26 @@ function startMarkFlow() as Void {
 //! Present the preset-name menu that saves the given coordinates as a mark. Shared
 //! by "Mark this spot" (current position) and "save target" on the result screen.
 function showMarkNameMenu(lat as Double, lon as Double) as Void {
-    var menu = new WatchUi.Menu2({:title => "Mark as…"});
+    var items = [] as Array<Dictionary>;
     for (var i = 0; i < Marks.PRESETS.size(); i++) {
         var name = Marks.PRESETS[i];
-        menu.addItem(new WatchUi.MenuItem(name, null, name, null));
+        items.add({"label" => name, "sub" => null, "id" => name});
     }
-    WatchUi.pushView(menu, new MarkNameDelegate(lat, lon), WatchUi.SLIDE_LEFT);
+    showMenu("Mark as…", items, new MarkNameHandler(lat, lon).method(:onChoose));
 }
 
-class MarkNameDelegate extends WatchUi.Menu2InputDelegate {
+class MarkNameHandler {
 
     private var _lat as Double;
     private var _lon as Double;
 
     public function initialize(lat as Double, lon as Double) {
-        Menu2InputDelegate.initialize();
         _lat = lat;
         _lon = lon;
     }
 
-    public function onSelect(item as WatchUi.MenuItem) as Void {
-        var name = item.getId() as String;
+    public function onChoose(id as Object) as Void {
+        var name = id as String;
         Marks.save(name, _lat, _lon);
         var v = new MessageView("Saved", name + " marked here");
         WatchUi.switchToView(v, new SimpleBackDelegate(), WatchUi.SLIDE_LEFT);
@@ -241,7 +287,7 @@ function startTakeMeBack() as Void {
         return;
     }
     var ll = currentLatLon();
-    var menu = new WatchUi.Menu2({:title => "Take me back"});
+    var items = [] as Array<Dictionary>;
     for (var i = 0; i < list.size(); i++) {
         var m = list[i];
         var name = m["n"] as String;
@@ -250,22 +296,21 @@ function startTakeMeBack() as Void {
             var inv = Geo.inverse(ll[0], ll[1], m["la"].toDouble(), m["lo"].toDouble());
             sub = formatDistance(inv[0]) + " away";
         }
-        menu.addItem(new WatchUi.MenuItem(name, sub, name, null));
+        items.add({"label" => name, "sub" => sub, "id" => name});
     }
-    WatchUi.pushView(menu, new TakeMeBackDelegate(list), WatchUi.SLIDE_LEFT);
+    showMenu("Take me back", items, new TakeMeBackHandler(list).method(:onChoose));
 }
 
-class TakeMeBackDelegate extends WatchUi.Menu2InputDelegate {
+class TakeMeBackHandler {
 
     private var _list as Array<Dictionary>;
 
     public function initialize(list as Array<Dictionary>) {
-        Menu2InputDelegate.initialize();
         _list = list;
     }
 
-    public function onSelect(item as WatchUi.MenuItem) as Void {
-        var name = item.getId() as String;
+    public function onChoose(id as Object) as Void {
+        var name = id as String;
         for (var i = 0; i < _list.size(); i++) {
             var m = _list[i];
             if ((m["n"] as String).equals(name)) {
@@ -285,42 +330,36 @@ function startManageMarks() as Void {
         WatchUi.pushView(v, new SimpleBackDelegate(), WatchUi.SLIDE_LEFT);
         return;
     }
-    var menu = new WatchUi.Menu2({:title => "Manage marks"});
+    var items = [] as Array<Dictionary>;
     for (var i = 0; i < list.size(); i++) {
         var m = list[i];
         var name = m["n"] as String;
-        // Show the mark's grid so two similarly-named marks can be told apart.
-        var grid = Geo.mgrsAtPrecision(m["la"].toDouble(), m["lo"].toDouble(), Settings.gridDigits());
-        menu.addItem(new WatchUi.MenuItem(name, grid, name, null));
+        // Show the mark's coordinates so two similarly-named marks can be told apart.
+        var grid = formatPosition(m["la"].toDouble(), m["lo"].toDouble());
+        items.add({"label" => name, "sub" => grid, "id" => name});
     }
-    WatchUi.pushView(menu, new ManageMarksDelegate(menu), WatchUi.SLIDE_LEFT);
+    showMenu("Manage marks", items, new ManageHandler().method(:onChoose));
 }
 
-class ManageMarksDelegate extends WatchUi.Menu2InputDelegate {
+class ManageHandler {
 
-    private var _menu as WatchUi.Menu2;
     private var _pendingName as String = "";
 
-    public function initialize(menu as WatchUi.Menu2) {
-        Menu2InputDelegate.initialize();
-        _menu = menu;
+    public function initialize() {
     }
 
-    public function onSelect(item as WatchUi.MenuItem) as Void {
-        _pendingName = item.getId() as String;
+    public function onChoose(id as Object) as Void {
+        _pendingName = id as String;
         var cv = new ConfirmView("Delete " + _pendingName + "?");
         WatchUi.pushView(cv, new ConfirmDelegate(self.method(:confirmDelete)), WatchUi.SLIDE_IMMEDIATE);
     }
 
-    //! Delete from storage AND from the live menu (so the list refreshes in place).
-    //! Returns true if the list is now empty, signalling the caller to close it.
+    //! Delete from storage, then close the confirm and the menu (returning to Tools);
+    //! the list is rebuilt fresh next time Manage is opened. Returning true tells the
+    //! ConfirmDelegate to also pop the underlying menu.
     public function confirmDelete() as Boolean {
         Marks.remove(_pendingName);
-        var idx = _menu.findItemById(_pendingName);
-        if (idx >= 0) {
-            _menu.deleteItem(idx);
-        }
-        return Marks.all().size() == 0;
+        return true;
     }
 }
 
@@ -349,12 +388,12 @@ class ConfirmView extends WatchUi.View {
 }
 
 //! START runs the confirm action then closes; BACK cancels (default pop).
-class ConfirmDelegate extends WatchUi.BehaviorDelegate {
+class ConfirmDelegate extends ButtonNavDelegate {
 
     private var _onYes as Lang.Method;
 
     public function initialize(onYes as Lang.Method) {
-        BehaviorDelegate.initialize();
+        ButtonNavDelegate.initialize();
         _onYes = onYes;
     }
 

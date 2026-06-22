@@ -18,6 +18,15 @@ function currentLatLon() as Array<Double>? {
     return [d[0].toDouble(), d[1].toDouble()] as Array<Double>;
 }
 
+//! Format a position per the user's coordinate setting: an MGRS grid (at the
+//! chosen precision) or decimal lat/long. Used everywhere a coordinate is shown.
+function formatPosition(lat as Double, lon as Double) as String {
+    if (Settings.useLatLon()) {
+        return lat.format("%.5f") + ", " + lon.format("%.5f");
+    }
+    return Geo.mgrsAtPrecision(lat, lon, Settings.gridDigits());
+}
+
 //! Quality of the latest fix (NOT_AVAILABLE if we have none yet).
 function fixAccuracy() as Position.Quality {
     var info = $.gLastInfo;
@@ -68,6 +77,8 @@ class MainView extends WatchUi.View {
     // The "TOOLS" hint fades after the shared hint window; it comes back each
     // time you return to the home screen.
     private var _hints as HintTimer = new HintTimer();
+    private var _refresh as Timer.Timer?;   // redraw while waiting for a fix / ageing
+    private var _shownAt as Number = 0;      // when this screen last appeared (ms)
 
     public function initialize() {
         View.initialize();
@@ -76,11 +87,24 @@ class MainView extends WatchUi.View {
     public function onShow() as Void {
         _hints.reset();
         gpsAcquire();
+        _shownAt = System.getTimer();
+        // Keep the screen live so a fix appears promptly, the age updates, and the
+        // no-fix guidance can escalate even when no position events are arriving.
+        _refresh = new Timer.Timer();
+        _refresh.start(method(:onRefresh), 3000, true);
     }
 
     public function onHide() as Void {
         _hints.stop();
         gpsRelease();
+        if (_refresh != null) {
+            _refresh.stop();
+            _refresh = null;
+        }
+    }
+
+    public function onRefresh() as Void {
+        WatchUi.requestUpdate();
     }
 
     //! Re-show the hints (called when a button is pressed on this screen).
@@ -110,8 +134,16 @@ class MainView extends WatchUi.View {
         if (ll == null) {
             dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
             dc.drawText(cx, cy, Graphics.FONT_SMALL, "Waiting for GPS…", vc);
+            // After a while with no fix at all, point at the likely causes - outdoors
+            // line of sight, or the Location/GPS permission being off.
+            var waited = System.getTimer() - _shownAt;
             dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(cx, cy + tinyH, Graphics.FONT_XTINY, "step outside for a fix", vc);
+            if (waited > 20000) {
+                dc.drawText(cx, cy + tinyH, Graphics.FONT_XTINY,
+                    "go outside, and check\nLocation/GPS is enabled", vc);
+            } else {
+                dc.drawText(cx, cy + tinyH, Graphics.FONT_XTINY, "step outside for a fix", vc);
+            }
             return;
         }
 
@@ -121,7 +153,7 @@ class MainView extends WatchUi.View {
         var q = fixAccuracy();
         var fresh = hasFreshFix();
         var gridColor = fresh ? Graphics.COLOR_WHITE : Graphics.COLOR_LT_GRAY;
-        var grid = Geo.mgrsAtPrecision(ll[0], ll[1], Settings.gridDigits());
+        var grid = formatPosition(ll[0], ll[1]);
         var half = drawGridFitted(dc, cx, cy, grid, gridColor, (w * 0.9).toNumber());
 
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
@@ -140,12 +172,12 @@ class MainView extends WatchUi.View {
 
 //! Home-screen input: START (or MENU) opens the tools menu. UP/DOWN just bring
 //! the hint back (they otherwise do nothing on this screen).
-class MainDelegate extends WatchUi.BehaviorDelegate {
+class MainDelegate extends ButtonNavDelegate {
 
     private var _view as MainView;
 
     public function initialize(view as MainView) {
-        BehaviorDelegate.initialize();
+        ButtonNavDelegate.initialize();
         _view = view;
     }
 
@@ -241,14 +273,14 @@ class ResultView extends WatchUi.View {
 
 //! Result-screen input: START navigates to the computed target; BACK returns.
 //! UP/DOWN just bring the hints back.
-class ResultDelegate extends WatchUi.BehaviorDelegate {
+class ResultDelegate extends ButtonNavDelegate {
 
     private var _view as ResultView;
     private var _destLat as Double;
     private var _destLon as Double;
 
     public function initialize(view as ResultView, destLat as Double, destLon as Double) {
-        BehaviorDelegate.initialize();
+        ButtonNavDelegate.initialize();
         _view = view;
         _destLat = destLat;
         _destLon = destLon;

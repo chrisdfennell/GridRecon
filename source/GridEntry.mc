@@ -4,22 +4,30 @@ import Toybox.WatchUi;
 
 //! "Go to a grid": punch in an MGRS grid you've been given and navigate to it -
 //! the inverse of "Find a target". Entry is seeded from your current position, so
-//! the zone/band/100 km-square prefix is pre-filled (you and the target are almost
-//! always in the same square) and you only dial the 10 easting/northing digits.
+//! the whole grid is pre-filled and the cursor starts on the easting; you usually
+//! just dial the digits that differ and press GO. If the target is in a different
+//! square (or zone), press BACK to step left into the zone / band / square cells -
+//! every character is editable.
 //!
-//!   UP / DOWN  change the highlighted digit      START  next digit (GO on the last)
-//!   BACK       previous digit (exits at the first)
+//!   UP / DOWN  change the highlighted character    START  next cell (GO on the last)
+//!   BACK       previous cell (exits at the first)
+//!
+//! The 15 cells, in display order "ZZB SQ EEEEE NNNNN":
+//!   0,1 zone digits   2 band letter   3 column letter   4 row letter
+//!   5..9 easting       10..14 northing
 class GridEntryView extends WatchUi.View {
 
-    private var _prefix as String;        // "18T WL"
-    private var _digits as Array<Number>; // 10 digits: 5 easting + 5 northing
-    private var _cursor as Number = 0;
+    private const BANDS = "CDEFGHJKLMNPQRSTUVWX";   // latitude bands (I, O omitted)
+    private const ROWS  = "ABCDEFGHJKLMNPQRSTUV";   // 100 km row letters
+    private const DIGITS = "0123456789";
+
+    private var _chars as Array<String>;   // 15 single-character cells
+    private var _cursor as Number = 5;     // start on the first easting digit
     private var _hints as HintTimer = new HintTimer();
 
-    public function initialize(prefix as String, digits as Array<Number>) {
+    public function initialize(chars as Array<String>) {
         View.initialize();
-        _prefix = prefix;
-        _digits = digits;
+        _chars = chars;
     }
 
     public function onShow() as Void {
@@ -30,22 +38,14 @@ class GridEntryView extends WatchUi.View {
         _hints.stop();
     }
 
-    public function cursor() as Number {
-        return _cursor;
-    }
-
     public function atLast() as Boolean {
-        return _cursor >= 9;
-    }
-
-    public function bumpHints() as Void {
-        _hints.reset();
+        return _cursor >= 14;
     }
 
     //! Move the cursor; returns false if it can't (already at the requested edge).
     public function moveCursor(delta as Number) as Boolean {
         var n = _cursor + delta;
-        if (n < 0 || n > 9) {
+        if (n < 0 || n > 14) {
             return false;
         }
         _cursor = n;
@@ -53,19 +53,48 @@ class GridEntryView extends WatchUi.View {
         return true;
     }
 
-    //! Step the highlighted digit (wraps 0..9).
-    public function adjustDigit(delta as Number) as Void {
-        _digits[_cursor] = ((_digits[_cursor] + delta) % 10 + 10) % 10;
+    //! Step the highlighted character through its allowed set (wraps).
+    public function adjustChar(delta as Number) as Void {
+        var alpha = alphabetFor(_cursor);
+        var idx = alpha.find(_chars[_cursor]);
+        if (idx == null) { idx = 0; }
+        idx = ((idx + delta) % alpha.length() + alpha.length()) % alpha.length();
+        _chars[_cursor] = alpha.substring(idx, idx + 1);
         _hints.reset();
     }
 
     //! Full MGRS string, e.g. "18T WL 80740 04691".
     public function grid() as String {
+        var zb = _chars[0] + _chars[1] + _chars[2];
+        var sq = _chars[3] + _chars[4];
         var e = "";
         var n = "";
-        for (var i = 0; i < 5; i++) { e += _digits[i].format("%d"); }
-        for (var i = 5; i < 10; i++) { n += _digits[i].format("%d"); }
-        return _prefix + " " + e + " " + n;
+        for (var i = 5; i < 10; i++)  { e += _chars[i]; }
+        for (var i = 10; i < 15; i++) { n += _chars[i]; }
+        return zb + " " + sq + " " + e + " " + n;
+    }
+
+    //! Allowed character cycle for a cell.
+    private function alphabetFor(i as Number) as String {
+        if (i == 2) { return BANDS; }
+        if (i == 4) { return ROWS; }
+        if (i == 3) {
+            // Column letters cycle in sets of 8 every 3 zones (I, O omitted).
+            var zone = (_chars[0] + _chars[1]).toNumber();
+            if (zone == null) { zone = 1; }
+            var set = zone % 3;
+            return (set == 1) ? "ABCDEFGH" : ((set == 2) ? "JKLMNPQR" : "STUVWXYZ");
+        }
+        return DIGITS;   // zone digits (0,1) and easting/northing (5..14)
+    }
+
+    private function label() as String {
+        if (_cursor < 2)  { return "zone"; }
+        if (_cursor == 2) { return "band"; }
+        if (_cursor == 3) { return "column"; }
+        if (_cursor == 4) { return "row"; }
+        if (_cursor < 10) { return "easting"; }
+        return "northing";
     }
 
     public function onUpdate(dc as Dc) as Void {
@@ -77,71 +106,77 @@ class GridEntryView extends WatchUi.View {
         var cy = dc.getHeight() / 2;
         var vc = Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER;
 
-        // Prefix (the fixed zone/band/square) above the editable digits.
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, (dc.getHeight() * 0.20).toNumber(), Graphics.FONT_TINY, _prefix, vc);
+        dc.drawText(cx, (dc.getHeight() * 0.20).toNumber(), Graphics.FONT_TINY, "Enter grid", vc);
 
-        // Largest digit font whose 10-digit row (plus a gap) fits the width.
-        var maxW = (w * 0.9).toNumber();
+        // Display slots: cell index per glyph, -1 for the group-separating spaces.
+        var slots = [0, 1, 2, -1, 3, 4, -1, 5, 6, 7, 8, 9, -1, 10, 11, 12, 13, 14] as Array<Number>;
+
+        // Build the rendered string and pick the largest font that fits.
+        var shown = "";
+        for (var s = 0; s < slots.size(); s++) {
+            shown += (slots[s] < 0) ? " " : _chars[slots[s]];
+        }
+        var maxW = (w * 0.92).toNumber();
         var font = Graphics.FONT_XTINY;
-        var dw = 0;
         for (var i = 0; i < FIT_FONTS.size(); i++) {
-            var f = FIT_FONTS[i];
-            var cw = dc.getTextWidthInPixels("0", f);
-            if (cw * 11 <= maxW) {   // 10 digits + one digit-width gap between groups
-                font = f;
-                dw = cw;
+            if (dc.getTextWidthInPixels(shown, FIT_FONTS[i]) <= maxW) {
+                font = FIT_FONTS[i];
                 break;
             }
         }
-        if (dw == 0) { dw = dc.getTextWidthInPixels("0", font); }
 
-        var gap = dw;
-        var totalW = 10 * dw + gap;
-        var x0 = cx - totalW / 2 + dw / 2;
-        for (var i = 0; i < 10; i++) {
-            var groupOffset = (i >= 5) ? gap : 0;
-            var x = x0 + i * dw + groupOffset;
-            var active = (i == _cursor);
-            dc.setColor(active ? Graphics.COLOR_YELLOW : Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(x, cy, font, _digits[i].format("%d"), vc);
+        // Lay the glyphs out left-to-right, centered, highlighting the active cell.
+        var total = dc.getTextWidthInPixels(shown, font);
+        var x = cx - total / 2;
+        var fh = dc.getFontHeight(font);
+        for (var s = 0; s < slots.size(); s++) {
+            var ch = (slots[s] < 0) ? " " : _chars[slots[s]];
+            var cw = dc.getTextWidthInPixels(ch, font);
+            var active = (slots[s] == _cursor);
+            var color = Graphics.COLOR_WHITE;
             if (active) {
-                var halfH = dc.getFontHeight(font) / 2;
-                dc.fillRectangle(x - dw / 2 + 1, cy + halfH - 2, dw - 2, 2);   // underline
+                color = Graphics.COLOR_YELLOW;
+            } else if (slots[s] >= 0 && slots[s] < 5) {
+                color = Graphics.COLOR_LT_GRAY;   // the seeded zone/band/square prefix
             }
+            dc.setColor(color, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(x + cw / 2, cy, font, ch, vc);
+            if (active) {
+                dc.fillRectangle(x + 1, cy + fh / 2 - 2, cw - 2, 2);
+            }
+            x += cw;
         }
 
-        // Which half you're editing.
         dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, cy + dc.getFontHeight(font), Graphics.FONT_XTINY,
-            (_cursor < 5) ? "easting" : "northing", vc);
+        dc.drawText(cx, cy + fh, Graphics.FONT_XTINY, label(), vc);
 
-        drawButtonHint(dc, 0.47, false, "+", Graphics.COLOR_WHITE, true);                 // UP, timed
-        drawButtonHint(dc, 0.67, false, "-", Graphics.COLOR_WHITE, true);                 // DOWN, timed
+        drawButtonHint(dc, 0.47, false, "+", Graphics.COLOR_WHITE, true);                  // UP
+        drawButtonHint(dc, 0.67, false, "-", Graphics.COLOR_WHITE, true);                  // DOWN
         drawButtonHint(dc, 0.32, true, atLast() ? "GO" : "NEXT", Graphics.COLOR_WHITE, true);
-        drawButtonHint(dc, 0.68, true, "BACK", Graphics.COLOR_LT_GRAY, false);            // always-on
+        drawButtonHint(dc, 0.68, true, "BACK", Graphics.COLOR_LT_GRAY, false);             // always-on
     }
 }
 
-//! Drives GridEntryView: UP/DOWN change the digit, START advances (and on the last
-//! digit computes the lat/lon and starts navigation), BACK steps left or cancels.
-class GridEntryDelegate extends WatchUi.BehaviorDelegate {
+//! Drives GridEntryView: UP/DOWN change the character, START advances (and on the
+//! last cell computes the lat/lon and starts navigation), BACK steps left or cancels.
+class GridEntryDelegate extends ButtonNavDelegate {
 
     private var _view as GridEntryView;
 
     public function initialize(view as GridEntryView) {
-        BehaviorDelegate.initialize();
+        ButtonNavDelegate.initialize();
         _view = view;
     }
 
     public function onKeyPressed(evt as WatchUi.KeyEvent) as Boolean {
         var k = evt.getKey();
         if (k == WatchUi.KEY_UP) {
-            _view.adjustDigit(1);
+            _view.adjustChar(1);
             WatchUi.requestUpdate();
             return true;
         } else if (k == WatchUi.KEY_DOWN) {
-            _view.adjustDigit(-1);
+            _view.adjustChar(-1);
             WatchUi.requestUpdate();
             return true;
         }
@@ -154,10 +189,9 @@ class GridEntryDelegate extends WatchUi.BehaviorDelegate {
             WatchUi.requestUpdate();
             return true;
         }
-        // Last digit: resolve the grid and navigate to it.
         var ll = Geo.mgrsToLatLon(_view.grid());
         if (ll == null) {
-            var m = new MessageView("Bad grid", "Check the digits\nand try again.");
+            var m = new MessageView("Bad grid", "Check the zone, square\nand digits, then retry.");
             WatchUi.pushView(m, new SimpleBackDelegate(), WatchUi.SLIDE_LEFT);
             return true;
         }
@@ -166,7 +200,7 @@ class GridEntryDelegate extends WatchUi.BehaviorDelegate {
         return true;
     }
 
-    //! BACK steps the cursor left; at the first digit it falls through to cancel.
+    //! BACK steps the cursor left; at the first cell it falls through to cancel.
     public function onBack() as Boolean {
         if (_view.moveCursor(-1)) {
             WatchUi.requestUpdate();
@@ -184,13 +218,19 @@ function startGoToGrid() as Void {
         WatchUi.pushView(v, new SimpleBackDelegate(), WatchUi.SLIDE_LEFT);
         return;
     }
-    // Seed prefix + digits from where we are (target is usually in the same square).
-    var parts = splitOnSpace(Geo.latLonToMgrs(ll[0], ll[1]));   // [zb, sq, eeeee, nnnnn]
-    var prefix = parts[0] + " " + parts[1];
-    var digits = [] as Array<Number>;
-    for (var i = 0; i < 5; i++) { digits.add(parts[2].substring(i, i + 1).toNumber()); }
-    for (var i = 0; i < 5; i++) { digits.add(parts[3].substring(i, i + 1).toNumber()); }
+    // Seed every cell from where we are; the user edits only what differs.
+    var parts = splitOnSpace(Geo.latLonToMgrs(ll[0], ll[1]));   // [ZZB, SQ, EEEEE, NNNNN]
+    var zb = parts[0];
+    var sq = parts[1];
+    var e = parts[2];
+    var n = parts[3];
+    var chars = [
+        zb.substring(0, 1), zb.substring(1, 2), zb.substring(2, 3),
+        sq.substring(0, 1), sq.substring(1, 2)
+    ] as Array<String>;
+    for (var i = 0; i < 5; i++) { chars.add(e.substring(i, i + 1)); }
+    for (var i = 0; i < 5; i++) { chars.add(n.substring(i, i + 1)); }
 
-    var v = new GridEntryView(prefix, digits);
+    var v = new GridEntryView(chars);
     WatchUi.pushView(v, new GridEntryDelegate(v), WatchUi.SLIDE_LEFT);
 }

@@ -27,6 +27,10 @@ module Settings {
 
     const UNITS_KEY = "imperial";     // 0 = metric (default), 1 = imperial
 
+    const COORD_KEY = "coordFmt";     // 0 = MGRS (default), 1 = lat/long
+
+    const INPUT_KEY = "buttonOnly";   // 0 = touch + buttons (default), 1 = buttons only
+
     //! Stored declination in degrees (East +). 0 if never set.
     function declination() as Number {
         var v = Storage.getValue(DECL_KEY);
@@ -103,5 +107,34 @@ module Settings {
 
     function unitsLabel() as String {
         return useImperial() ? "Imperial (yd/mi)" : "Metric (m/km)";
+    }
+
+    //! --- coordinate format -----------------------------------------------------
+
+    function useLatLon() as Boolean {
+        return Storage.getValue(COORD_KEY) == 1;
+    }
+
+    function setUseLatLon(latlon as Boolean) as Void {
+        Storage.setValue(COORD_KEY, latlon ? 1 : 0);
+    }
+
+    function coordLabel() as String {
+        return useLatLon() ? "Lat/Long" : "MGRS";
+    }
+
+    //! --- input mode ------------------------------------------------------------
+
+    //! True if the user wants buttons only (touch ignored, custom button menus).
+    function buttonOnly() as Boolean {
+        return Storage.getValue(INPUT_KEY) == 1;
+    }
+
+    function setButtonOnly(on as Boolean) as Void {
+        Storage.setValue(INPUT_KEY, on ? 1 : 0);
+    }
+
+    function inputLabel() as String {
+        return buttonOnly() ? "Buttons only" : "Touch + buttons";
     }
 }

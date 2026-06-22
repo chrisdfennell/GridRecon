@@ -99,7 +99,7 @@ class NumberInputView extends WatchUi.View {
 
 //! Drives a NumberInputView. Single taps step once; holding UP/DOWN starts a
 //! timer that repeats and accelerates. START confirms; BACK cancels (default pop).
-class NumberInputDelegate extends WatchUi.BehaviorDelegate {
+class NumberInputDelegate extends ButtonNavDelegate {
 
     private var _view as NumberInputView;
     private var _callback as Lang.Method;
@@ -108,7 +108,7 @@ class NumberInputDelegate extends WatchUi.BehaviorDelegate {
     private var _ticks as Number = 0;   // repeats so far this hold, drives acceleration
 
     public function initialize(view as NumberInputView, callback as Lang.Method) {
-        BehaviorDelegate.initialize();
+        ButtonNavDelegate.initialize();
         _view = view;
         _callback = callback;
     }
@@ -166,9 +166,9 @@ class NumberInputDelegate extends WatchUi.BehaviorDelegate {
     }
 }
 
-//! Minimal delegate for terminal views (e.g. the result screen): BACK pops.
-class SimpleBackDelegate extends WatchUi.BehaviorDelegate {
+//! Minimal delegate for terminal views (e.g. message screens): BACK pops.
+class SimpleBackDelegate extends ButtonNavDelegate {
     public function initialize() {
-        BehaviorDelegate.initialize();
+        ButtonNavDelegate.initialize();
     }
 }

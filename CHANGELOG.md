@@ -4,6 +4,17 @@ All notable changes to GridRecon are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project aims to
 follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Button-only input mode** — **Tools → Settings → Input** lets you choose "Buttons only", which ignores the touchscreen and switches the menus to a custom button-driven list (since native menus can't refuse touch). Defaults to "Touch + buttons".
+- **Lat/long coordinates** — **Tools → Settings → Coordinates** toggles all displayed positions between MGRS and decimal lat/long.
+- **Fully editable "Go to a grid"** — the zone, band and 100 km square are now editable too (not just the easting/northing), so you can navigate to a grid outside your current square.
+
+### Changed
+- **Button hints redesigned** — each hint is now a short green arc on the bezel exactly at its physical button, with a small vector icon (menu / check / +/− / chevrons / back / save) instead of an inboard arrow and text word.
+- **Clearer "no fix" guidance** — after ~20 s with no GPS, the home screen suggests going outside and checking the Location/GPS permission, rather than waiting indefinitely with no hint.
+
 ## [1.1.0] - 2026-06-21
 
 ### Added
