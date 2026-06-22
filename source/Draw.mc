@@ -45,13 +45,16 @@ class HintTimer {
     }
 }
 
-//! Draw a button hint: a short label at the screen rim, beside a physical button,
-//! with a small marker pointing out to that button. Positions follow the
-//! fenix / tactix button-only layout - START upper-right, BACK lower-right,
-//! UP/DOWN on the left - so the user can see at a glance what each button does.
+//! Draw a button hint as a short green arc on the bezel *exactly* where the
+//! physical button is, with a small icon just inside it - the native Garmin
+//! look. Positions follow the fenix / tactix button-only layout (START
+//! upper-right, BACK lower-right, UP/DOWN on the left), so each arc sits right
+//! at the button it describes instead of an arrow only approximating it.
 //!
 //! @param yFrac  vertical position as a fraction of height (START ~0.32, BACK ~0.68)
 //! @param right  true for a right-edge button, false for a left-edge button
+//! @param label  action word; mapped to an icon (e.g. "GO"->check, "+"->plus)
+//! @param color  icon colour (the arc is always green); LT_GRAY dims a back hint
 //! @param timed  true to fade with the hint timer; false for always-on
 //!               confirm / cancel / back hints (so you can always exit a screen)
 function drawButtonHint(dc as Dc, yFrac as Float, right as Boolean,
@@ -65,27 +68,83 @@ function drawButtonHint(dc as Dc, yFrac as Float, right as Boolean,
     var cy = h / 2;
     var rad = ((w < h) ? w : h) / 2 - 1;
 
+    // Angle from centre to this button's point on the rim (0 = 3 o'clock, CCW+).
     var y = (h * yFrac).toNumber();
-    var dy = y - cy;
-    var inside = rad * rad - dy * dy;
+    var dyUp = cy - y;                                   // math-up positive
+    var inside = rad * rad - dyUp * dyUp;
     var rimHalf = (inside > 0) ? Math.sqrt(inside) : 0.0;
+    var dx = right ? rimHalf : -rimHalf;
+    var angDeg = Math.atan2(dyUp, dx) * Geo.RAD2DEG;
+    if (angDeg < 0.0) { angDeg += 360.0; }
 
+    // Green arc hugging the bezel at that angle (a short, centred span).
+    var span = 13.0;
+    var pen = 6;
+    var arcR = rad - 3;
+    dc.setPenWidth(pen);
+    dc.setColor(Graphics.COLOR_GREEN, Graphics.COLOR_TRANSPARENT);
+    dc.drawArc(cx, cy, arcR, Graphics.ARC_COUNTER_CLOCKWISE,
+        (angDeg - span).toNumber(), (angDeg + span).toNumber());
+    dc.setPenWidth(1);
+
+    // Action icon just inside the arc.
+    var ar = (angDeg * Geo.DEG2RAD);
+    var ir = arcR - 16;
+    var ix = (cx + ir * Math.cos(ar)).toNumber();
+    var iy = (cy - ir * Math.sin(ar)).toNumber();
+    drawHintIcon(dc, labelToIcon(label), ix, iy, 6, color);
+}
+
+//! Map an action word to an icon symbol.
+function labelToIcon(label as String) as Symbol {
+    if (label.equals("+")) { return :plus; }
+    if (label.equals("-")) { return :minus; }
+    if (label.equals("UP")) { return :up; }
+    if (label.equals("DOWN")) { return :down; }
+    if (label.equals("BACK")) { return :back; }
+    if (label.equals("EXIT")) { return :exit; }
+    if (label.equals("SAVE")) { return :save; }
+    if (label.equals("TOOLS")) { return :menu; }
+    return :check;   // GO / NEXT / DONE / CONFIRM and any other proceed action
+}
+
+//! Draw a small vector icon centred at (x, y); `s` is the half-size. Vectors (not
+//! font glyphs/emoji) so they render identically on colour and 1-bit displays.
+function drawHintIcon(dc as Dc, kind as Symbol, x as Number, y as Number,
+                      s as Number, color as Graphics.ColorType) as Void {
     dc.setColor(color, Graphics.COLOR_TRANSPARENT);
-    if (right) {
-        var rimX = cx + rimHalf;
-        var tipX = (rimX - 3).toNumber();
-        var baseX = tipX - 11;
-        dc.fillPolygon([[baseX, y - 6], [baseX, y + 6], [tipX, y]] as Array<[Numeric, Numeric]>);
-        dc.drawText(baseX - 6, y, Graphics.FONT_XTINY, label,
-            Graphics.TEXT_JUSTIFY_RIGHT | Graphics.TEXT_JUSTIFY_VCENTER);
-    } else {
-        var rimX = cx - rimHalf;
-        var tipX = (rimX + 3).toNumber();
-        var baseX = tipX + 11;
-        dc.fillPolygon([[baseX, y - 6], [baseX, y + 6], [tipX, y]] as Array<[Numeric, Numeric]>);
-        dc.drawText(baseX + 6, y, Graphics.FONT_XTINY, label,
-            Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
+    dc.setPenWidth(2);
+    if (kind == :check) {
+        dc.drawLine(x - s, y, x - s / 3, y + s);
+        dc.drawLine(x - s / 3, y + s, x + s, y - s);
+    } else if (kind == :plus) {
+        dc.drawLine(x - s, y, x + s, y);
+        dc.drawLine(x, y - s, x, y + s);
+    } else if (kind == :minus) {
+        dc.drawLine(x - s, y, x + s, y);
+    } else if (kind == :up) {
+        dc.drawLine(x - s, y + s / 2, x, y - s / 2);    // up chevron
+        dc.drawLine(x, y - s / 2, x + s, y + s / 2);
+    } else if (kind == :down) {
+        dc.drawLine(x - s, y - s / 2, x, y + s / 2);    // down chevron
+        dc.drawLine(x, y + s / 2, x + s, y - s / 2);
+    } else if (kind == :back) {
+        dc.drawLine(x + s / 2, y - s, x - s / 2, y);    // left chevron
+        dc.drawLine(x - s / 2, y, x + s / 2, y + s);
+    } else if (kind == :exit) {
+        dc.drawLine(x - s, y - s, x + s, y + s);        // X
+        dc.drawLine(x + s, y - s, x - s, y + s);
+    } else if (kind == :save) {
+        dc.drawLine(x, y - s, x, y + s / 2);            // down arrow into a tray
+        dc.drawLine(x - s / 2, y, x, y + s / 2);
+        dc.drawLine(x + s / 2, y, x, y + s / 2);
+        dc.drawLine(x - s, y + s, x + s, y + s);
+    } else if (kind == :menu) {
+        dc.drawLine(x - s, y - s + 1, x + s, y - s + 1); // hamburger
+        dc.drawLine(x - s, y, x + s, y);
+        dc.drawLine(x - s, y + s - 1, x + s, y + s - 1);
     }
+    dc.setPenWidth(1);
 }
 
 //! Shared drawing helpers that keep the UI legible across every screen size,
