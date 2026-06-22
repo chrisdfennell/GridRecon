@@ -20,7 +20,7 @@ By participating you agree to abide by our [Code of Conduct](CODE_OF_CONDUCT.md)
 - [Garmin Connect IQ SDK](https://developer.garmin.com/connect-iq/sdk/) **9.x+** (install the Fenix 8 / Instinct device profiles via the **SDK / Device Manager**).
 - **Java 17+** (Java 21 recommended).
 - **PowerShell** (the build script is PowerShell-based).
-- **Python 3 + Pillow** — only if you regenerate the icon or promo art (`pip install pillow`).
+- **Python 3 + Pillow** — only if you regenerate the icon or promo art (`pip install -r tools/requirements.txt`).
 - A Connect IQ **developer key** (`developer_key.der`) in the repo root. Generate one with:
   ```powershell
   openssl genrsa -out developer_key.pem 4096

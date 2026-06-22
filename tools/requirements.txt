@@ -1,0 +1,7 @@
+# Python dependencies for the asset-generation tools in this directory
+# (gen_icon.py, gen_promo.py, gen_store_assets.py). Install with:
+#   pip install -r tools/requirements.txt
+#
+# Only needed to regenerate the launcher icon / promo / store art — not to
+# build or run the app itself.
+Pillow>=11,<13
