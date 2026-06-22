@@ -4,6 +4,9 @@ bin/
 *.iq
 *.prg.debug.xml
 
+# Generated simulator screenshots (tools/savescreenshot*.ps1 capture target)
+tools/assets/
+
 # Private developer signing keys — NEVER commit these
 *.der
 *.pem

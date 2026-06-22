@@ -218,8 +218,15 @@ foreach ($c in $children) {
     }
 }
 
-# Apply 1.5x DPI scaling multiplier for the screen capture coordinates
-$scale = 1.5
+# The simulator window reports its geometry in logical (DPI-virtualised) pixels,
+# but CopyFromScreen grabs physical pixels, so capture coordinates must be scaled
+# by the display's scaling factor. Read the TRUE system DPI from the registry
+# (AppliedDPI is correct even when this PowerShell host is DPI-unaware, in which
+# case the .NET Graphics.DpiX would wrongly report 96). 96 dpi = 100% = 1.0x.
+$appliedDpi = (Get-ItemProperty 'HKCU:\Control Panel\Desktop\WindowMetrics' -Name AppliedDPI -ErrorAction SilentlyContinue).AppliedDPI
+if (-not $appliedDpi) { $appliedDpi = 96 }
+$scale = $appliedDpi / 96.0
+Write-Host "Display scaling: $appliedDpi dpi -> ${scale}x"
 $captureLeft = [int]($scale * ($canvas.Left + $displayLoc.x))
 $captureTop = [int]($scale * ($canvas.Top + $displayLoc.y))
 $captureWidth = [int]($scale * $displayLoc.width)
@@ -241,8 +248,13 @@ if ($simJson.display.shape -eq "round") {
     $resizedBmp = $maskedBmp
 }
 
-# Save image to assets
-$outputPath = Join-Path $PSScriptRoot "assets\screen_active.png"
+# Save image to assets (create the folder on first run so the save can't fail
+# with an opaque GDI+ error on a clean checkout).
+$outputDir = Join-Path $PSScriptRoot "assets"
+if (!(Test-Path $outputDir)) {
+    New-Item -ItemType Directory -Path $outputDir | Out-Null
+}
+$outputPath = Join-Path $outputDir "screen_active.png"
 Write-Host "Saving watchface screenshot to $outputPath"
 if (Test-Path $outputPath) {
     Remove-Item $outputPath -Force

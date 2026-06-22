@@ -250,8 +250,13 @@ if ($simJson.display.shape -eq "round") {
     $resizedBmp = $maskedBmp
 }
 
-# Save image to assets (resolved relative to this script's location)
-$outputPath = Join-Path $PSScriptRoot "assets\screen_active.png"
+# Save image to assets (resolved relative to this script's location). Create the
+# folder on first run so the save can't fail with an opaque GDI+ error.
+$outputDir = Join-Path $PSScriptRoot "assets"
+if (!(Test-Path $outputDir)) {
+    New-Item -ItemType Directory -Path $outputDir | Out-Null
+}
+$outputPath = Join-Path $outputDir "screen_active.png"
 Write-Host "Saving watchface screenshot to $outputPath"
 if (Test-Path $outputPath) {
     Remove-Item $outputPath -Force
