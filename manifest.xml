@@ -4,9 +4,9 @@
         GridRecon - a GPS-denied land-navigation toolkit. The native fenix/tactix
         firmware already does GPS waypoint nav, MGRS display and sight-'n-go well,
         so this app deliberately owns what firmware does NOT: computing grids and
-        bearings by hand (target location / call-for-fire), and (later) dead-
-        reckoning legs, resection and pace count - the things you fall back on when
-        GPS is off, jammed, or you are training map-and-compass.
+        bearings by hand (target location / call-for-fire, grid-to-grid, resection)
+        and (later) dead-reckoning legs and pace count - the things you fall back on
+        when GPS is off, jammed, or you are training map-and-compass.
 
         Primary target is the Fenix 8 Solar 51mm (280x280 MIP, button-only). The
         UI is laid out relative to dc.getWidth()/getHeight() and grids are drawn

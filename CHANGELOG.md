@@ -6,6 +6,15 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-06-23
+
+### Added
+- **Resection** — fix your own position with no GPS by sighting two known landmarks. For each, enter its grid (off your map) and the bearing you read to it (compass-sight or by hand); GridRecon intersects the two back-bearings and gives you where you stand — ready to navigate to or save as a mark. The classic map-and-compass position fix, and the headline reason the app keeps a compass-sight path. Backed by a spherical great-circle intersection (after Veness), unit-tested by round-tripping a known observer.
+- **Grid → grid** — enter two MGRS grids and get the range and bearing between them (with the back-azimuth). The map-only calc — no GPS, no compass — for "how far is that saddle from this lake, and which way?". The second grid is seeded from the first, so you only dial the digits that differ.
+- **Sunrise & sunset** — **Tools → Sun** shows today's sunrise, sunset and day length for your position, in local time, with polar-day / polar-night handling above the Arctic/Antarctic circles. Pure astronomy — no network, no extra permissions.
+- **UTM coordinates** — **Tools → Settings → Coordinates** adds UTM (zone + band + full easting/northing) alongside MGRS and lat/long, for reading positions straight off a UTM-gridded topo map.
+- **Elevation** — when the fix reports altitude, your elevation shows low on the home and "mark this spot" screens (down by the bottom arc, clear of the grid and the buttons), in metres or feet per your units setting.
+
 ## [1.3.0] - 2026-06-23
 
 ### Added

@@ -126,6 +126,101 @@ module Geo {
         return zone.format("%02d") + bandLetter + " " + squareId + " " + eDigits + " " + nDigits;
     }
 
+    //! Convert lat/lon (degrees, WGS84) to a plain UTM grid string with the latitude
+    //! band, e.g. "18T 580740 4504691" - zone+band, then the full easting and northing
+    //! in metres. Unlike MGRS this carries the absolute easting/northing (no 100 km
+    //! square), which is what many topo maps and GIS tools quote. Southern-hemisphere
+    //! northings keep the standard 10,000,000 m false northing so they stay positive.
+    function latLonToUtmString(latDeg as Double, lonDeg as Double) as String {
+        var lon = lonDeg;
+        while (lon >= 180.0d) { lon -= 360.0d; }
+        while (lon < -180.0d) { lon += 360.0d; }
+
+        var lat = latDeg;
+        if (lat > 84.0d)  { lat = 84.0d; }
+        if (lat < -80.0d) { lat = -80.0d; }
+
+        var zone = ((lon + 180.0d) / 6.0d).toNumber() + 1;
+        if (zone > 60) { zone = 60; }
+        if (zone < 1)  { zone = 1; }
+
+        var utm = latLonToUtm(lat, lon, zone);
+        var e = utm[0].toLong();
+        var n = utm[1].toLong();
+        return zone.format("%02d") + latBand(lat) + " " + e.format("%d") + " " + n.format("%d");
+    }
+
+    //! Intersection of two great-circle paths, each given as a point and a bearing
+    //! (degrees true). Returns the [latDeg, lonDeg] where the path from (lat1,lon1) on
+    //! bearing brng1 crosses the path from (lat2,lon2) on bearing brng2, or null when
+    //! they don't meet cleanly (coincident points, parallel paths, or an ambiguous /
+    //! antipodal crossing). Spherical model, consistent with project()/inverse().
+    //!
+    //! This is the engine behind resection: stand at an unknown spot, sight two known
+    //! landmarks, and your position is where the two back-bearings cross. Pass the
+    //! bearing FROM each landmark TO you (i.e. backAzimuth of what you read on each).
+    //!
+    //! Formula after Chris Veness (movable-type.co.uk), in Double throughout.
+    function intersection(lat1 as Double, lon1 as Double, brng1 as Double,
+                          lat2 as Double, lon2 as Double, brng2 as Double) as Array<Double>? {
+        var phi1 = lat1 * DEG2RAD;
+        var lam1 = lon1 * DEG2RAD;
+        var phi2 = lat2 * DEG2RAD;
+        var lam2 = lon2 * DEG2RAD;
+        var th13 = brng1 * DEG2RAD;
+        var th23 = brng2 * DEG2RAD;
+        var dphi = phi2 - phi1;
+        var dlam = lam2 - lam1;
+
+        var sdp = Math.sin(dphi / 2.0d);
+        var sdl = Math.sin(dlam / 2.0d);
+        var d12 = 2.0d * Math.asin(Math.sqrt(sdp * sdp + Math.cos(phi1) * Math.cos(phi2) * sdl * sdl));
+        if (d12 < 1.0e-12d) { return null; }       // points coincide
+
+        var cosThA = (Math.sin(phi2) - Math.sin(phi1) * Math.cos(d12)) / (Math.sin(d12) * Math.cos(phi1));
+        var cosThB = (Math.sin(phi1) - Math.sin(phi2) * Math.cos(d12)) / (Math.sin(d12) * Math.cos(phi2));
+        var thA = Math.acos(clampD(cosThA, -1.0d, 1.0d));
+        var thB = Math.acos(clampD(cosThB, -1.0d, 1.0d));
+
+        var th12;
+        var th21;
+        if (Math.sin(dlam) > 0.0d) {
+            th12 = thA;
+            th21 = 2.0d * PI - thB;
+        } else {
+            th12 = 2.0d * PI - thA;
+            th21 = thB;
+        }
+
+        var a1 = th13 - th12;
+        var a2 = th21 - th23;
+        var sinA1 = Math.sin(a1);
+        var sinA2 = Math.sin(a2);
+        if (sinA1 == 0.0d && sinA2 == 0.0d) { return null; }   // infinite intersections
+        if (sinA1 * sinA2 < 0.0d)           { return null; }   // ambiguous (antipodal)
+
+        var cosA1 = Math.cos(a1);
+        var cosA2 = Math.cos(a2);
+        var cosA3 = -cosA1 * cosA2 + sinA1 * sinA2 * Math.cos(d12);
+        var d13 = Math.atan2(Math.sin(d12) * sinA1 * sinA2, cosA2 + cosA1 * cosA3);
+        var phi3 = Math.asin(clampD(Math.sin(phi1) * Math.cos(d13)
+            + Math.cos(phi1) * Math.sin(d13) * Math.cos(th13), -1.0d, 1.0d));
+        var dlam13 = Math.atan2(Math.sin(th13) * Math.sin(d13) * Math.cos(phi1),
+            Math.cos(d13) - Math.sin(phi1) * Math.sin(phi3));
+
+        var lon3 = (lam1 + dlam13) * RAD2DEG;
+        while (lon3 >= 180.0d) { lon3 -= 360.0d; }
+        while (lon3 < -180.0d) { lon3 += 360.0d; }
+        return [phi3 * RAD2DEG, lon3] as Array<Double>;
+    }
+
+    //! Clamp a Double to [lo, hi] (guards acos/asin against tiny over-range inputs).
+    function clampD(x as Double, lo as Double, hi as Double) as Double {
+        if (x < lo) { return lo; }
+        if (x > hi) { return hi; }
+        return x;
+    }
+
     //! --- internals -------------------------------------------------------------
 
     //! UTM forward. Returns [easting, northing] in metres (Doubles).

@@ -221,6 +221,14 @@ function startGridEntry(title as String, chars as Array<String>, onDone as Lang.
     WatchUi.pushView(v, new GridEntryDelegate(v, onDone), WatchUi.SLIDE_LEFT);
 }
 
+//! As startGridEntry but *replaces* the current view instead of stacking one. Used to
+//! chain steps in a multi-stage flow (grid-to-grid, resection) so BACK from a later
+//! step doesn't walk back through every entry screen one cell at a time.
+function switchToGridEntry(title as String, chars as Array<String>, onDone as Lang.Method) as Void {
+    var v = new GridEntryView(title, chars);
+    WatchUi.switchToView(v, new GridEntryDelegate(v, onDone), WatchUi.SLIDE_LEFT);
+}
+
 //! The 15 entry cells for an MGRS string "ZZB SQ EEEEE NNNNN".
 function charsFromMgrs(mgrs as String) as Array<String> {
     var parts = splitOnSpace(mgrs);   // [ZZB, SQ, EEEEE, NNNNN]

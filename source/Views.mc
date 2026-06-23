@@ -18,13 +18,50 @@ function currentLatLon() as Array<Double>? {
     return [d[0].toDouble(), d[1].toDouble()] as Array<Double>;
 }
 
-//! Format a position per the user's coordinate setting: an MGRS grid (at the
-//! chosen precision) or decimal lat/long. Used everywhere a coordinate is shown.
+//! Format a position per the user's coordinate setting: an MGRS grid (at the chosen
+//! precision), decimal lat/long, or a plain UTM grid. Used everywhere a coordinate
+//! is shown.
 function formatPosition(lat as Double, lon as Double) as String {
     if (Settings.useLatLon()) {
         return lat.format("%.5f") + ", " + lon.format("%.5f");
     }
+    if (Settings.useUtm()) {
+        return Geo.latLonToUtmString(lat, lon);
+    }
     return Geo.mgrsAtPrecision(lat, lon, Settings.gridDigits());
+}
+
+//! Altitude of the latest fix in metres above sea level, or null if we have none
+//! (no fix yet, or the receiver didn't report altitude).
+function currentElevationM() as Float? {
+    var info = $.gLastInfo;
+    if (info == null || info.altitude == null) {
+        return null;
+    }
+    return info.altitude;
+}
+
+//! Elevation in the user's units: metric "1280 m", imperial "4199 ft".
+function formatElevation(m as Float) as String {
+    if (Settings.useImperial()) {
+        return (m / 0.3048).format("%.0f") + " ft";
+    }
+    return m.format("%.0f") + " m";
+}
+
+//! Draw the current elevation (when the fix carries it) centered low on the screen,
+//! near the bottom arc. That zone is empty on the home and mark screens and clear of
+//! the side button hints, so the elevation never crowds the grid block or the actions.
+//! No-op when there's no altitude. Shared by MainView and MarkView.
+function drawElevation(dc as Dc) as Void {
+    var elev = currentElevationM();
+    if (elev == null) {
+        return;
+    }
+    dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+    dc.drawText(dc.getWidth() / 2, (dc.getHeight() * 0.84).toNumber(), Graphics.FONT_XTINY,
+        "elev " + formatElevation(elev),
+        Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 }
 
 //! Quality of the latest fix (NOT_AVAILABLE if we have none yet).
@@ -178,6 +215,9 @@ class MainView extends WatchUi.View {
         }
         dc.setColor(gpsColor(q), Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, cy + half + xtinyH / 2 + 4, Graphics.FONT_XTINY, status, vc);
+
+        // Elevation sits down by the bottom arc, away from the grid/status cluster.
+        drawElevation(dc);
     }
 }
 
@@ -296,6 +336,9 @@ class MarkView extends WatchUi.View {
         var q = fixAccuracy();
         dc.setColor(gpsColor(q), Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, cy + half + xtinyH / 2 + 4, Graphics.FONT_XTINY, gpsText(q), vc);
+
+        // Elevation sits down by the bottom arc, clear of the side button hints.
+        drawElevation(dc);
 
         // Always-on so the action is never hidden by the hint fade.
         drawButtonHint(dc, 0.32, true, "SAVE", Graphics.COLOR_WHITE, false);
@@ -438,5 +481,150 @@ class ResultDelegate extends ButtonNavDelegate {
         var v = new ReturnNavView("Target", _destLat, _destLon);
         WatchUi.pushView(v, new SimpleBackDelegate(), WatchUi.SLIDE_LEFT);
         return true;
+    }
+}
+
+//! Shows a computed *place* as a grid (e.g. the spot you resected): the grid is the
+//! hero, with a one-word label above. GO navigates to it, SAVE stores it as a mark to
+//! return to later, and BACK returns - the same START/UP/BACK trio as the target
+//! result screen, so the actions land on the buttons you already know.
+class PlaceResultView extends WatchUi.View {
+
+    private var _label as String;
+    private var _grid as String;
+    private var _hints as HintTimer = new HintTimer();
+
+    public function initialize(label as String, grid as String) {
+        View.initialize();
+        _label = label;
+        _grid = grid;
+    }
+
+    public function onShow() as Void {
+        _hints.reset();
+    }
+
+    public function onHide() as Void {
+        _hints.stop();
+    }
+
+    public function bumpHints() as Void {
+        _hints.reset();
+    }
+
+    public function onUpdate(dc as Dc) as Void {
+        dc.setColor(Graphics.COLOR_TRANSPARENT, Graphics.COLOR_BLACK);
+        dc.clear();
+
+        var w = dc.getWidth();
+        var cx = w / 2;
+        var cy = dc.getHeight() / 2;
+        var vc = Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER;
+        var tinyH = dc.getFontHeight(Graphics.FONT_TINY);
+
+        var half = drawGridFitted(dc, cx, cy, _grid, Graphics.COLOR_YELLOW, (w * 0.9).toNumber());
+
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, cy - half - tinyH / 2, Graphics.FONT_TINY, _label, vc);
+
+        drawButtonHint(dc, 0.32, true, "GO", Graphics.COLOR_WHITE, true);       // START, timed
+        drawButtonHint(dc, 0.47, false, "SAVE", Graphics.COLOR_WHITE, true);    // UP, timed
+        drawButtonHint(dc, 0.68, true, "BACK", Graphics.COLOR_LT_GRAY, false);  // always-on
+    }
+}
+
+//! Place-result input: START navigates to the place, UP saves it as a mark (pick a
+//! name), BACK returns. Mirrors ResultDelegate so the buttons behave the same way.
+class PlaceResultDelegate extends ButtonNavDelegate {
+
+    private var _view as PlaceResultView;
+    private var _lat as Double;
+    private var _lon as Double;
+    private var _navName as String;
+
+    public function initialize(view as PlaceResultView, lat as Double, lon as Double, navName as String) {
+        ButtonNavDelegate.initialize();
+        _view = view;
+        _lat = lat;
+        _lon = lon;
+        _navName = navName;
+    }
+
+    //! START: navigate to the computed place.
+    public function onSelect() as Boolean {
+        var v = new ReturnNavView(_navName, _lat, _lon);
+        WatchUi.pushView(v, new SimpleBackDelegate(), WatchUi.SLIDE_LEFT);
+        return true;
+    }
+
+    //! UP: save the place as a mark to return to later.
+    public function onPreviousPage() as Boolean {
+        showMarkNameMenu(_lat, _lon);
+        return true;
+    }
+
+    public function onNextPage() as Boolean {
+        _view.bumpHints();
+        return true;
+    }
+}
+
+//! Shows a *relationship* between two points (e.g. grid-to-grid): the distance is the
+//! hero, with the bearing to steer and the back-azimuth below. Read-only; BACK returns.
+class RangeResultView extends WatchUi.View {
+
+    private var _distM as Double;
+    private var _bearingTrue as Double;
+    private var _label as String;
+    private var _hints as HintTimer = new HintTimer();
+
+    public function initialize(label as String, distM as Double, bearingTrue as Double) {
+        View.initialize();
+        _label = label;
+        _distM = distM;
+        _bearingTrue = bearingTrue;
+    }
+
+    public function onShow() as Void {
+        _hints.reset();
+    }
+
+    public function onHide() as Void {
+        _hints.stop();
+    }
+
+    public function onUpdate(dc as Dc) as Void {
+        dc.setColor(Graphics.COLOR_TRANSPARENT, Graphics.COLOR_BLACK);
+        dc.clear();
+
+        var w = dc.getWidth();
+        var h = dc.getHeight();
+        var cx = w / 2;
+        var cy = h / 2;
+        var vc = Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER;
+
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, (h * 0.18).toNumber(), Graphics.FONT_TINY, _label, vc);
+
+        // Distance is the hero; the bearing is shown in the user's unit, magnetic (the
+        // number to dial on a compass) when a declination offset is set, true otherwise.
+        var mag = Settings.hasDeclination();
+        var steer = Settings.trueToMag(_bearingTrue);
+        var back = Geo.backAzimuth(_bearingTrue);
+        var backSteer = Settings.trueToMag(back);
+
+        var numH = dc.getFontHeight(Graphics.FONT_NUMBER_MEDIUM);
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, cy - numH / 4, Graphics.FONT_NUMBER_MEDIUM, formatDistance(_distM), vc);
+
+        var xtinyH = dc.getFontHeight(Graphics.FONT_XTINY);
+        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, cy + numH / 2 + xtinyH, Graphics.FONT_XTINY,
+            "bearing " + Settings.formatBearing(steer, mag), vc);
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, cy + numH / 2 + xtinyH * 2, Graphics.FONT_XTINY,
+            "back " + Settings.formatBearing(backSteer, mag), vc);
+
+        drawButtonHint(dc, 0.68, true, "BACK", Graphics.COLOR_LT_GRAY, false);
     }
 }

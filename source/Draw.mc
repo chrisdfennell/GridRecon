@@ -192,15 +192,19 @@ function drawGridFitted(dc as Dc, cx as Number, cy as Number, text as String,
     }
 
     // Two-line fallback. Break the way the value reads aloud: an MGRS grid splits
-    // into "<zone><band> <square>" / "<easting> <northing>" (4 parts), a decimal
-    // lat/long into "<lat>," / "<lon>" (2 parts). Anything else just wraps at the
-    // existing space so a too-wide string never overflows on one line.
+    // into "<zone><band> <square>" / "<easting> <northing>" (4 parts), a UTM grid into
+    // "<zone><band>" / "<easting> <northing>" (3 parts), a decimal lat/long into
+    // "<lat>," / "<lon>" (2 parts). Anything else just wraps at the existing space so a
+    // too-wide string never overflows on one line.
     var parts = splitOnSpace(text);
     var line1 = text;
     var line2 = "";
     if (parts.size() >= 4) {
         line1 = parts[0] + " " + parts[1];
         line2 = parts[2] + " " + parts[3];
+    } else if (parts.size() == 3) {
+        line1 = parts[0];
+        line2 = parts[1] + " " + parts[2];
     } else if (parts.size() == 2) {
         line1 = parts[0];
         line2 = parts[1];

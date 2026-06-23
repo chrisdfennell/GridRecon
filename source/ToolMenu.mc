@@ -11,6 +11,9 @@ function openToolMenu() as Void {
         {"label" => "Manage marks",   "sub" => "delete a mark",          "id" => :manage},
         {"label" => "Find a target",  "sub" => "where is that thing?",   "id" => :target},
         {"label" => "Go to a grid",   "sub" => "navigate to an MGRS grid", "id" => :gogrid},
+        {"label" => "Grid to grid",   "sub" => "range & bearing between", "id" => :g2g},
+        {"label" => "Resection",      "sub" => "fix your position",      "id" => :resection},
+        {"label" => "Sun",            "sub" => "sunrise & sunset",       "id" => :sun},
         {"label" => "Settings",       "sub" => "input · coords · units", "id" => :settings},
         {"label" => "Help",           "sub" => "how this works",         "id" => :help},
         {"label" => "About",          "sub" => null,                     "id" => :about}
@@ -28,6 +31,13 @@ class ToolMenuHandler {
             new TargetLocationFlow().start();
         } else if (id == :gogrid) {
             startGoToGrid();
+        } else if (id == :g2g) {
+            new GridToGridFlow().start();
+        } else if (id == :resection) {
+            new ResectionFlow().start();
+        } else if (id == :sun) {
+            var sv = new SunView();
+            WatchUi.pushView(sv, new SimpleBackDelegate(), WatchUi.SLIDE_LEFT);
         } else if (id == :mark) {
             startMarkFlow();
         } else if (id == :back) {
@@ -41,7 +51,7 @@ class ToolMenuHandler {
                 "Point your compass at\nsomething. Read the\nbearing & how far it is.\nEnter them and you get\nits map grid.");
             WatchUi.pushView(v, new SimpleBackDelegate(), WatchUi.SLIDE_LEFT);
         } else if (id == :about) {
-            var v = new MessageView("GridRecon  v1.3.0",
+            var v = new MessageView("GridRecon  v1.4.0",
                 "Land navigation when\nGPS is off or jammed.\nMore tools coming.");
             WatchUi.pushView(v, new SimpleBackDelegate(), WatchUi.SLIDE_LEFT);
         }
@@ -127,6 +137,117 @@ class TargetLocationFlow {
     }
 }
 
+//! "Grid → grid": enter two MGRS grids and get the range and bearing from the first
+//! to the second - the map-only calc (no GPS, no compass) for "how far is that saddle
+//! from this lake, and which way?". Both grids are entered by hand; the first is seeded
+//! from your position, the second from the first, so you only dial the digits that
+//! differ. The result reuses the same true→magnetic bearing handling as the rest of
+//! the app.
+class GridToGridFlow {
+
+    private var _aLat as Double = 0.0d;
+    private var _aLon as Double = 0.0d;
+
+    public function initialize() {
+    }
+
+    public function start() as Void {
+        startGridEntry("From grid", gridSeedChars(), self.method(:onA));
+    }
+
+    public function onA(ll as Array<Double>) as Void {
+        _aLat = ll[0];
+        _aLon = ll[1];
+        // Seed the "to" grid from the "from" grid so nearby targets are a few taps away.
+        switchToGridEntry("To grid", charsFromMgrs(Geo.latLonToMgrs(_aLat, _aLon)), self.method(:onB));
+    }
+
+    public function onB(ll as Array<Double>) as Void {
+        var inv = Geo.inverse(_aLat, _aLon, ll[0], ll[1]);   // [distM, bearingTrue]
+        var v = new RangeResultView("Grid to grid", inv[0], inv[1]);
+        WatchUi.switchToView(v, new SimpleBackDelegate(), WatchUi.SLIDE_LEFT);
+    }
+}
+
+//! "Resection": fix your own position with no GPS by sighting two known landmarks.
+//! For each landmark you enter its grid (off your map) and the bearing you read to it;
+//! where the two back-bearings cross is where you stand. The classic map-and-compass
+//! fallback, and the reason the app keeps a compass-sight path.
+//!
+//! The chain: landmark-1 grid → bearing to it (compass-sight, then fine-tune) →
+//! landmark-2 grid → bearing to it → computed position. Bearings are captured exactly
+//! like "Find a target" (magnetic when a declination offset is set, converted to true
+//! for the geometry). Each step replaces the last, so BACK unwinds cleanly.
+class ResectionFlow {
+
+    private var _l1Lat as Double = 0.0d;
+    private var _l1Lon as Double = 0.0d;
+    private var _l2Lat as Double = 0.0d;
+    private var _l2Lon as Double = 0.0d;
+    private var _az1True as Double = 0.0d;   // observer→landmark-1 bearing, degrees true
+    private var _which as Number = 1;        // which landmark's bearing we're capturing
+
+    public function initialize() {
+    }
+
+    public function start() as Void {
+        startGridEntry("Landmark 1", gridSeedChars(), self.method(:onL1));
+    }
+
+    public function onL1(ll as Array<Double>) as Void {
+        _l1Lat = ll[0];
+        _l1Lon = ll[1];
+        _which = 1;
+        beginSighting();
+    }
+
+    public function onL2(ll as Array<Double>) as Void {
+        _l2Lat = ll[0];
+        _l2Lon = ll[1];
+        _which = 2;
+        beginSighting();
+    }
+
+    //! Show the compass-sight screen (always replacing the previous step).
+    private function beginSighting() as Void {
+        var v = new CompassSightView();
+        var d = new CompassSightDelegate(self.method(:onCaptured));
+        WatchUi.switchToView(v, d, WatchUi.SLIDE_LEFT);
+    }
+
+    //! SET on the sight screen: seed the bearing spinner with the captured heading.
+    public function onCaptured(magDeg as Double?) as Void {
+        var seed = (magDeg != null) ? Settings.bearingFromDegrees(magDeg) : 0;
+        var prompt = Settings.hasDeclination() ? "Bearing (MAG)" : "Bearing";
+        var az = new NumberInputView(prompt, seed, 0, Settings.bearingMax(), 1, true,
+            Settings.bearingSuffix(), Settings.bearingPad(), "NEXT");
+        WatchUi.switchToView(az, new NumberInputDelegate(az, self.method(:onAz)), WatchUi.SLIDE_LEFT);
+    }
+
+    public function onAz(value as Number) as Void {
+        var azTrue = Settings.magToTrue(Settings.bearingToDegrees(value));
+        if (_which == 1) {
+            _az1True = azTrue;
+            // On to landmark 2, seeded from landmark 1.
+            switchToGridEntry("Landmark 2", charsFromMgrs(Geo.latLonToMgrs(_l1Lat, _l1Lon)),
+                self.method(:onL2));
+            return;
+        }
+        // Both sights in hand: intersect the two back-bearings (landmark→you).
+        var back1 = Geo.backAzimuth(_az1True);
+        var back2 = Geo.backAzimuth(azTrue);
+        var pos = Geo.intersection(_l1Lat, _l1Lon, back1, _l2Lat, _l2Lon, back2);
+        if (pos == null) {
+            var m = new MessageView("No fix", "Those bearings don't\ncross cleanly. Use two\nwell-separated landmarks.");
+            WatchUi.switchToView(m, new SimpleBackDelegate(), WatchUi.SLIDE_LEFT);
+            return;
+        }
+        var grid = formatPosition(pos[0], pos[1]);
+        var rv = new PlaceResultView("You are at", grid);
+        WatchUi.switchToView(rv, new PlaceResultDelegate(rv, pos[0], pos[1], "Resection"), WatchUi.SLIDE_LEFT);
+    }
+}
+
 //! "Declination": set the magnetic-vs-true offset for your area, using the same
 //! number spinner. East is positive, West negative (the standard convention).
 //! Once set, bearings you enter and bearings shown to steer by are magnetic.
@@ -206,11 +327,12 @@ class InputHandler {
     }
 }
 
-//! "Coordinates": show positions as MGRS grids or decimal lat/long.
+//! "Coordinates": show positions as MGRS grids, decimal lat/long, or UTM grids.
 function openCoordMenu() as Void {
     var items = [
         {"label" => "MGRS",     "sub" => "military grid",   "id" => :mgrs},
-        {"label" => "Lat/Long", "sub" => "decimal degrees", "id" => :latlon}
+        {"label" => "Lat/Long", "sub" => "decimal degrees", "id" => :latlon},
+        {"label" => "UTM",      "sub" => "zone + E/N",      "id" => :utm}
     ] as Array<Dictionary>;
     showMenu("Coordinates", items, new CoordHandler().method(:onChoose));
 }
@@ -221,7 +343,13 @@ class CoordHandler {
     }
 
     public function onChoose(id as Object) as Void {
-        Settings.setUseLatLon(id == :latlon);
+        var fmt = Settings.COORD_MGRS;
+        if (id == :latlon) {
+            fmt = Settings.COORD_LATLON;
+        } else if (id == :utm) {
+            fmt = Settings.COORD_UTM;
+        }
+        Settings.setCoordFmt(fmt);
         var v = new MessageView("Saved", "Coordinates: " + Settings.coordLabel());
         WatchUi.switchToView(v, new SimpleBackDelegate(), WatchUi.SLIDE_LEFT);
     }

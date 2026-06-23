@@ -31,13 +31,16 @@ cleanly from a 280×280 fenix down to a 156×156 monochrome Instinct.
 
 | Tool | What it's for |
 |---|---|
-| **Live position** | Your current location as a clean MGRS grid, auto-sized to your screen, with a GPS fix-quality indicator so you know it's trustworthy. |
-| **Find a target** | Enter the bearing + distance to anything you can see → get its MGRS grid, plus the back-azimuth to walk yourself home. The classic observer "polar plot" / call-for-fire. Save the result as a mark to return to it later. |
+| **Live position** | Your current location as a clean grid (MGRS, lat/long or UTM), auto-sized to your screen, with a GPS fix-quality indicator and your elevation so you know it's trustworthy. |
+| **Find a target** | Enter the bearing + distance to anything you can see → get its grid, plus the back-azimuth to walk yourself home. The classic observer "polar plot" / call-for-fire. Save the result as a mark to return to it later. |
 | **Go to a grid** | Punch in an MGRS grid someone gives you and navigate straight to it — the inverse of "Find a target." Seeded from where you are, so you only dial the digits that change. |
+| **Grid → grid** | Enter two grids → range and bearing between them (with the back-azimuth). The map-only calc — no GPS, no compass. |
+| **Resection** | Fix your *own* position with no GPS by sighting two known landmarks: enter each landmark's grid and the bearing to it, and GridRecon intersects the back-bearings to put you on the map. |
 | **Mark this spot** | Save where you are under a name (Car, Camp, Trailhead, …). Persisted, so it survives closing the app — that's the "where'd I park?" magic. |
 | **Take me back** | Live navigation to a saved mark: a hybrid arrow (compass when still, GPS course when moving), the distance counting down, and the bearing to steer by. |
 | **Manage marks** | Review and delete saved marks. |
-| **Settings** | Magnetic declination (enter magnetic bearings), grid precision (1 m → 10 km), and metric/imperial units. |
+| **Sun** | Today's sunrise, sunset and day length for your position, in local time (polar day/night aware). |
+| **Settings** | Coordinate format (MGRS / lat-long / UTM), magnetic declination, bearings in degrees or mils, grid precision (1 m → 10 km), and metric/imperial units. |
 
 Every screen is **button-labelled** — small hints sit right next to the physical
 button that triggers them (e.g. `CONFIRM ►` by START), and number entry uses
@@ -105,11 +108,9 @@ drive), copy `bin/GridRecon.prg` to `GARMIN/APPS/`, eject, and launch GridRecon.
 
 ## 🗺️ Roadmap
 
-The grid + navigation engine is the foundation for the rest of the GPS-denied toolkit:
+The grid + navigation engine is the foundation for the rest of the GPS-denied toolkit.
+Shipped so far: grid → grid, resection, save-a-target-as-a-mark. Still ahead:
 
-- **Grid ↔ grid** — range and bearing between two entered grids.
-- **Save a target as a mark** — drop the computed target straight into your marks.
-- **Resection** — fix your own position from two or three compass bearings to known points.
 - **Dead reckoning** — bearing + distance legs you can walk with GPS fully off.
 - **Pace count** — accelerometer-driven distance, your pace beads automated.
 
@@ -117,7 +118,7 @@ The grid + navigation engine is the foundation for the rest of the GPS-denied to
 
 ## 🎨 Project layout
 
-- `source/` — the app: `Geo.mc` (MGRS + geodesy engine), `Views.mc`, `Nav.mc`, `NumberInput.mc`, `ToolMenu.mc`, `Marks.mc`, `Draw.mc`.
+- `source/` — the app: `Geo.mc` (MGRS/UTM + geodesy engine), `Sun.mc` (sunrise/sunset), `Views.mc`, `Nav.mc`, `NumberInput.mc`, `ToolMenu.mc`, `Marks.mc`, `Draw.mc`.
 - `resources/` — strings and the launcher icon.
 - `tools/` — `gen_icon.py` / `gen_promo.py` generate the launcher icon and marketing art (Python + Pillow).
 - `assets/` — generated icon and promo graphics.

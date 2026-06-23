@@ -244,3 +244,62 @@ function testMgrsToLatLonParsing(logger as Test.Logger) as Boolean {
     Test.assertMessage(Geo.mgrsToLatLon("99T WL 80740 04691") == null, "bad zone -> null");
     return true;
 }
+
+// =============================================================================
+//  UTM string
+// =============================================================================
+
+//! latLonToUtmString must agree with the (golden-pinned) MGRS output: same zone+band,
+//! and the absolute easting/northing reduced to their 100 km remainder must match the
+//! MGRS easting/northing figures. This ties UTM to the existing MGRS goldens without a
+//! second external reference, and exercises the northern + southern (false-northing)
+//! paths. Northing > 1,000,000, so its %100,000 is the same 5 figures MGRS shows.
+function assertUtm(logger as Test.Logger, lat as Double, lon as Double,
+                   prefix as String, e5 as Number, n5 as Number) as Void {
+    var got = Geo.latLonToUtmString(lat, lon);
+    logger.debug(prefix + " ~" + e5.format("%05d") + " ~" + n5.format("%05d") + "  <=  " + got);
+    var parts = splitOnSpace(got);
+    Test.assertMessage(parts.size() == 3, "expected 3 parts: " + got);
+    Test.assertMessage((parts[0] as String).equals(prefix), "zone+band: want " + prefix + " (" + got + ")");
+    var e = (parts[1] as String).toNumber();
+    var n = (parts[2] as String).toNumber();
+    Test.assertMessage(e != null && e > 100000, "easting carries false easting: " + got);
+    Test.assertMessage(digitsClose(e % 100000, e5), "easting figures: want ~" + e5 + " (" + got + ")");
+    Test.assertMessage(digitsClose(n % 100000, n5), "northing figures: want ~" + n5 + " (" + got + ")");
+}
+
+(:test)
+function testUtmString(logger as Test.Logger) as Boolean {
+    assertUtm(logger,  40.689167d,  -74.044444d, "18T", 80740,  4691); // Statue of Liberty (N)
+    assertUtm(logger, -33.856785d,  151.215288d, "56H", 34899, 52290); // Sydney (S, false northing)
+    return true;
+}
+
+// =============================================================================
+//  Intersection (resection)
+// =============================================================================
+
+//! Resection round trip: from a known observer, sight two landmarks (true bearings via
+//! inverse()), then intersect the two back-bearings (landmark→observer) and recover the
+//! observer's position. This is exactly what ResectionFlow does.
+(:test)
+function testIntersection(logger as Test.Logger) as Boolean {
+    var oLat = 45.0d; var oLon = -93.0d;            // the unknown we should recover
+    var l1 = Geo.project(oLat, oLon, 30.0d, 5000.0d);
+    var l2 = Geo.project(oLat, oLon, 120.0d, 4000.0d);
+
+    var b1 = Geo.inverse(oLat, oLon, l1[0], l1[1])[1];   // observer→landmark-1 bearing
+    var b2 = Geo.inverse(oLat, oLon, l2[0], l2[1])[1];
+
+    var p = Geo.intersection(l1[0], l1[1], Geo.backAzimuth(b1),
+                             l2[0], l2[1], Geo.backAzimuth(b2));
+    Test.assertMessage(p != null, "intersection found");
+    logger.debug("resect: " + p[0] + ", " + p[1] + " (want " + oLat + ", " + oLon + ")");
+    Test.assertMessage(nearD(p[0], oLat, 1.0e-4d), "resect lat " + p[0]);
+    Test.assertMessage(nearD(p[1], oLon, 1.0e-4d), "resect lon " + p[1]);
+
+    // Parallel paths (same bearing from two points on that bearing line) don't cross.
+    var par = Geo.intersection(45.0d, -93.0d, 90.0d, 45.0d, -92.0d, 90.0d);
+    Test.assertMessage(par == null, "parallel paths -> null");
+    return true;
+}

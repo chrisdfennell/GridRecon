@@ -27,7 +27,7 @@ module Settings {
 
     const UNITS_KEY = "imperial";     // 0 = metric (default), 1 = imperial
 
-    const COORD_KEY = "coordFmt";     // 0 = MGRS (default), 1 = lat/long
+    const COORD_KEY = "coordFmt";     // 0 = MGRS (default), 1 = lat/long, 2 = UTM
 
     const INPUT_KEY = "buttonOnly";   // 0 = touch + buttons (default), 1 = buttons only
 
@@ -177,17 +177,42 @@ module Settings {
     }
 
     //! --- coordinate format -----------------------------------------------------
+    //!
+    //! How a position is shown everywhere: an MGRS grid (default), decimal lat/long, or
+    //! a plain UTM grid (zone+band, full easting/northing) for users who read those off
+    //! a topo map. Stored as 0/1/2; the legacy 0/1 values keep their old meaning.
 
-    function useLatLon() as Boolean {
-        return Storage.getValue(COORD_KEY) == 1;
+    const COORD_MGRS   = 0;
+    const COORD_LATLON = 1;
+    const COORD_UTM    = 2;
+
+    function coordFmt() as Number {
+        var v = Storage.getValue(COORD_KEY);
+        if (v == null) {
+            return COORD_MGRS;
+        }
+        var n = v as Number;
+        if (n < COORD_MGRS || n > COORD_UTM) { n = COORD_MGRS; }
+        return n;
     }
 
-    function setUseLatLon(latlon as Boolean) as Void {
-        Storage.setValue(COORD_KEY, latlon ? 1 : 0);
+    function setCoordFmt(fmt as Number) as Void {
+        Storage.setValue(COORD_KEY, fmt);
+    }
+
+    function useLatLon() as Boolean {
+        return coordFmt() == COORD_LATLON;
+    }
+
+    function useUtm() as Boolean {
+        return coordFmt() == COORD_UTM;
     }
 
     function coordLabel() as String {
-        return useLatLon() ? "Lat/Long" : "MGRS";
+        var f = coordFmt();
+        if (f == COORD_LATLON) { return "Lat/Long"; }
+        if (f == COORD_UTM)    { return "UTM"; }
+        return "MGRS";
     }
 
     //! --- input mode ------------------------------------------------------------
