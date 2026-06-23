@@ -48,41 +48,68 @@ class ToolMenuHandler {
     }
 }
 
-//! "Find a target": take the current fix, ask for the compass bearing and the
-//! distance to a target, then compute and show the target's map grid.
+//! "Find a target": from a starting point, sight the compass bearing and enter the
+//! distance to a target, then compute and show the target's map grid. The starting
+//! point is the live fix when there is one - but if GPS is off or jammed (the whole
+//! point of the app) you can enter your position by grid and the geometry still works.
 class TargetLocationFlow {
 
     private var _fromLat as Double = 0.0d;
     private var _fromLon as Double = 0.0d;
-    private var _azMag as Double = 0.0d;    // bearing as entered (magnetic if declination set)
+    private var _azMag as Double = 0.0d;    // bearing as entered, in magnetic-frame DEGREES
 
     public function initialize() {
     }
 
     public function start() as Void {
         var ll = currentLatLon();
-        if (ll == null || !hasFreshFix()) {
-            var v = new MessageView("No fresh GPS",
-                "Wait for a solid fix,\nthen try again.");
-            WatchUi.pushView(v, new SimpleBackDelegate(), WatchUi.SLIDE_LEFT);
-            return;
+        if (ll != null && hasFreshFix()) {
+            _fromLat = ll[0];
+            _fromLon = ll[1];
+            beginSighting(false);
+        } else {
+            // No live fix: set the start point by hand, then carry on. Seeded from the
+            // last-known position when there is one (every cell stays editable).
+            startGridEntry("Your position", gridSeedChars(), self.method(:onManualFrom));
         }
+    }
+
+    //! Manual start point chosen (GPS-denied path): adopt it and go sight the bearing.
+    public function onManualFrom(ll as Array<Double>) as Void {
         _fromLat = ll[0];
         _fromLon = ll[1];
+        beginSighting(true);
+    }
 
-        // Azimuth: 0..359, wraps, zero-padded to 3 digits, degree suffix. When a
-        // declination offset is set, the value you enter is your compass (magnetic)
-        // reading - we convert to true before projecting.
+    //! Show the compass-sight screen. `replace` swaps the current view (used after the
+    //! manual grid screen) instead of stacking another one.
+    private function beginSighting(replace as Boolean) as Void {
+        var v = new CompassSightView();
+        var d = new CompassSightDelegate(self.method(:onCaptured));
+        if (replace) {
+            WatchUi.switchToView(v, d, WatchUi.SLIDE_LEFT);
+        } else {
+            WatchUi.pushView(v, d, WatchUi.SLIDE_LEFT);
+        }
+    }
+
+    //! SET pressed on the sight screen: seed the bearing spinner with the captured
+    //! magnetic heading (or 0 when there's no compass) so it can be fine-tuned. The
+    //! spinner is in the user's angle unit; when a declination offset is set the value
+    //! is your compass (magnetic) reading, which we convert to true before projecting.
+    public function onCaptured(magDeg as Double?) as Void {
+        var seed = (magDeg != null) ? Settings.bearingFromDegrees(magDeg) : 0;
         var prompt = Settings.hasDeclination() ? "Bearing (MAG)" : "Bearing";
-        var az = new NumberInputView(prompt, 0, 0, 359, 1, true, "°", 3, "NEXT");
-        WatchUi.pushView(az, new NumberInputDelegate(az, self.method(:onAzChosen)), WatchUi.SLIDE_LEFT);
+        var az = new NumberInputView(prompt, seed, 0, Settings.bearingMax(), 1, true,
+            Settings.bearingSuffix(), Settings.bearingSmallSuffix(), Settings.bearingPad(), "NEXT");
+        WatchUi.switchToView(az, new NumberInputDelegate(az, self.method(:onAzChosen)), WatchUi.SLIDE_LEFT);
     }
 
     public function onAzChosen(value as Number) as Void {
-        _azMag = value.toDouble();
+        _azMag = Settings.bearingToDegrees(value);   // display unit -> magnetic-frame degrees
         // Range entered in the user's units (metres or yards): step 10, no wrap.
-        var suffix = Settings.useImperial() ? " yd" : " m";
-        var rg = new NumberInputView("Distance", 100, 0, 9999, 10, false, suffix, 0, "DONE");
+        var unit = Settings.useImperial() ? "yd" : "m";
+        var rg = new NumberInputView("Distance", 100, 0, 9999, 10, false, "", unit, 0, "DONE");
         WatchUi.switchToView(rg, new NumberInputDelegate(rg, self.method(:onRangeChosen)), WatchUi.SLIDE_LEFT);
     }
 
@@ -110,7 +137,7 @@ class DeclinationFlow {
 
     public function start() as Void {
         var v = new NumberInputView("Declination (E+)", Settings.declination(),
-            Settings.DECL_MIN, Settings.DECL_MAX, 1, false, "°", 0, "SAVE");
+            Settings.DECL_MIN, Settings.DECL_MAX, 1, false, "°", "", 0, "SAVE");
         WatchUi.pushView(v, new NumberInputDelegate(v, self.method(:onChosen)), WatchUi.SLIDE_LEFT);
     }
 
@@ -127,6 +154,7 @@ function openSettingsMenu() as Void {
     var items = [
         {"label" => "Input",          "sub" => Settings.inputLabel(), "id" => :input},
         {"label" => "Coordinates",    "sub" => Settings.coordLabel(), "id" => :coord},
+        {"label" => "Bearings",       "sub" => Settings.angleLabel(), "id" => :angle},
         {"label" => "Declination",    "sub" => Settings.declLabel(),  "id" => :decl},
         {"label" => "Grid precision", "sub" => Settings.gridLabel(),  "id" => :grid},
         {"label" => "Units",          "sub" => Settings.unitsLabel(), "id" => :units}
@@ -144,6 +172,8 @@ class SettingsHandler {
             openInputMenu();
         } else if (id == :coord) {
             openCoordMenu();
+        } else if (id == :angle) {
+            openAngleMenu();
         } else if (id == :decl) {
             new DeclinationFlow().start();
         } else if (id == :grid) {
@@ -197,6 +227,27 @@ class CoordHandler {
     }
 }
 
+//! "Bearings": enter and display bearings in degrees (0–359) or NATO mils (0–6399).
+function openAngleMenu() as Void {
+    var items = [
+        {"label" => "Degrees", "sub" => "0–359°",        "id" => :deg},
+        {"label" => "Mils",    "sub" => "0–6399 (NATO)", "id" => :mils}
+    ] as Array<Dictionary>;
+    showMenu("Bearings", items, new AngleHandler().method(:onChoose));
+}
+
+class AngleHandler {
+
+    public function initialize() {
+    }
+
+    public function onChoose(id as Object) as Void {
+        Settings.setUseMils(id == :mils);
+        var v = new MessageView("Saved", "Bearings: " + Settings.angleLabel());
+        WatchUi.switchToView(v, new SimpleBackDelegate(), WatchUi.SLIDE_LEFT);
+    }
+}
+
 //! "Grid precision": choose how many easting/northing figures the MGRS grids show,
 //! from 1 (10 km) to 5 (1 m). Reuses the number spinner.
 class GridPrecisionFlow {
@@ -206,7 +257,7 @@ class GridPrecisionFlow {
 
     public function start() as Void {
         var v = new NumberInputView("Grid digits", Settings.gridDigits(),
-            Settings.GRID_MIN, Settings.GRID_MAX, 1, false, "", 0, "SAVE");
+            Settings.GRID_MIN, Settings.GRID_MAX, 1, false, "", "", 0, "SAVE");
         WatchUi.pushView(v, new NumberInputDelegate(v, self.method(:onChosen)), WatchUi.SLIDE_LEFT);
     }
 

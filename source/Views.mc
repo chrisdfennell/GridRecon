@@ -386,18 +386,20 @@ class ResultView extends WatchUi.View {
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, gy - half - tinyH / 2, Graphics.FONT_TINY, "Target is at", vc);
 
-        // "M" marks the bearings as magnetic (a declination offset is in effect);
-        // with no offset everything is true north and the suffix is dropped.
-        var ref = Settings.hasDeclination() ? "M" : "";
+        // Bearings are shown in the user's angle unit, with a trailing "M" when a
+        // declination offset is in effect (a magnetic reading); with no offset
+        // everything is true north and the marker is dropped. _azDeg is already in the
+        // magnetic frame, so formatBearing just tags it - it doesn't re-apply the offset.
+        var mag = Settings.hasDeclination();
 
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        var entered = "bearing " + _azDeg.toNumber().format("%03d") + "°" + ref + "  ·  " + formatDistance(_rangeM);
+        var entered = "bearing " + Settings.formatBearing(_azDeg, mag) + "  ·  " + formatDistance(_rangeM);
         dc.drawText(cx, gy + half + xtinyH / 2 + 2, Graphics.FONT_XTINY, entered, vc);
 
         var back = Geo.backAzimuth(_azDeg);
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, gy + half + xtinyH * 3 / 2 + 4, Graphics.FONT_XTINY,
-            "walk back on " + back.toNumber().format("%03d") + "°" + ref, vc);
+            "walk back on " + Settings.formatBearing(back, mag), vc);
 
         drawButtonHint(dc, 0.32, true, "GO", Graphics.COLOR_WHITE, true);      // START, timed
         drawButtonHint(dc, 0.47, false, "SAVE", Graphics.COLOR_WHITE, true);   // UP, timed

@@ -21,12 +21,14 @@ class GridEntryView extends WatchUi.View {
     private const ROWS  = "ABCDEFGHJKLMNPQRSTUV";   // 100 km row letters
     private const DIGITS = "0123456789";
 
+    private var _title as String;          // header line ("Enter grid", "Your position")
     private var _chars as Array<String>;   // 15 single-character cells
     private var _cursor as Number = 5;     // start on the first easting digit
     private var _hints as HintTimer = new HintTimer();
 
-    public function initialize(chars as Array<String>) {
+    public function initialize(title as String, chars as Array<String>) {
         View.initialize();
+        _title = title;
         _chars = chars;
     }
 
@@ -107,7 +109,7 @@ class GridEntryView extends WatchUi.View {
         var vc = Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER;
 
         dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, (dc.getHeight() * 0.20).toNumber(), Graphics.FONT_TINY, "Enter grid", vc);
+        dc.drawText(cx, (dc.getHeight() * 0.20).toNumber(), Graphics.FONT_TINY, _title, vc);
 
         // Display slots: cell index per glyph, -1 for the group-separating spaces.
         var slots = [0, 1, 2, -1, 3, 4, -1, 5, 6, 7, 8, 9, -1, 10, 11, 12, 13, 14] as Array<Number>;
@@ -163,10 +165,12 @@ class GridEntryView extends WatchUi.View {
 class GridEntryDelegate extends ButtonNavDelegate {
 
     private var _view as GridEntryView;
+    private var _onDone as Lang.Method;   // invoked with [lat, lon] once a valid grid is entered
 
-    public function initialize(view as GridEntryView) {
+    public function initialize(view as GridEntryView, onDone as Lang.Method) {
         ButtonNavDelegate.initialize();
         _view = view;
+        _onDone = onDone;
     }
 
     public function onKeyPressed(evt as WatchUi.KeyEvent) as Boolean {
@@ -195,8 +199,7 @@ class GridEntryDelegate extends ButtonNavDelegate {
             WatchUi.pushView(m, new SimpleBackDelegate(), WatchUi.SLIDE_LEFT);
             return true;
         }
-        var nav = new ReturnNavView("Grid", ll[0], ll[1]);
-        WatchUi.switchToView(nav, new SimpleBackDelegate(), WatchUi.SLIDE_LEFT);
+        _onDone.invoke(ll);
         return true;
     }
 
@@ -210,16 +213,17 @@ class GridEntryDelegate extends ButtonNavDelegate {
     }
 }
 
-//! Build and show the grid-entry screen, seeded from the current position.
-function startGoToGrid() as Void {
-    var ll = currentLatLon();
-    if (ll == null) {
-        var v = new MessageView("No GPS yet", "Need a fix first to\nseed the grid square.");
-        WatchUi.pushView(v, new SimpleBackDelegate(), WatchUi.SLIDE_LEFT);
-        return;
-    }
-    // Seed every cell from where we are; the user edits only what differs.
-    var parts = splitOnSpace(Geo.latLonToMgrs(ll[0], ll[1]));   // [ZZB, SQ, EEEEE, NNNNN]
+//! Push a grid-entry screen titled `title`, seeded with `chars`; `onDone` is invoked
+//! with the parsed [lat, lon] once the user presses GO on a valid grid. Shared by
+//! "Go to a grid" (navigate there) and "Find a target" (set your position by hand).
+function startGridEntry(title as String, chars as Array<String>, onDone as Lang.Method) as Void {
+    var v = new GridEntryView(title, chars);
+    WatchUi.pushView(v, new GridEntryDelegate(v, onDone), WatchUi.SLIDE_LEFT);
+}
+
+//! The 15 entry cells for an MGRS string "ZZB SQ EEEEE NNNNN".
+function charsFromMgrs(mgrs as String) as Array<String> {
+    var parts = splitOnSpace(mgrs);   // [ZZB, SQ, EEEEE, NNNNN]
     var zb = parts[0];
     var sq = parts[1];
     var e = parts[2];
@@ -230,7 +234,37 @@ function startGoToGrid() as Void {
     ] as Array<String>;
     for (var i = 0; i < 5; i++) { chars.add(e.substring(i, i + 1)); }
     for (var i = 0; i < 5; i++) { chars.add(n.substring(i, i + 1)); }
+    return chars;
+}
 
-    var v = new GridEntryView(chars);
-    WatchUi.pushView(v, new GridEntryDelegate(v), WatchUi.SLIDE_LEFT);
+//! Cells seeded from the current (or last-known cached) position, or a neutral default
+//! when we've never had a fix. Used by manual "I am here" entry: every cell is editable,
+//! so the seed just saves keystrokes near wherever you actually are.
+function gridSeedChars() as Array<String> {
+    var ll = currentLatLon();
+    var mgrs = (ll != null) ? Geo.latLonToMgrs(ll[0], ll[1]) : "31N AA 00000 00000";
+    return charsFromMgrs(mgrs);
+}
+
+//! "Go to a grid": seed from where we are and navigate to whatever grid is entered.
+function startGoToGrid() as Void {
+    var ll = currentLatLon();
+    if (ll == null) {
+        var v = new MessageView("No GPS yet", "Need a fix first to\nseed the grid square.");
+        WatchUi.pushView(v, new SimpleBackDelegate(), WatchUi.SLIDE_LEFT);
+        return;
+    }
+    startGridEntry("Enter grid", charsFromMgrs(Geo.latLonToMgrs(ll[0], ll[1])),
+        new GridNavStarter().method(:onGrid));
+}
+
+//! Callback for "Go to a grid": start live navigation to the entered grid.
+class GridNavStarter {
+    public function initialize() {
+    }
+
+    public function onGrid(ll as Array<Double>) as Void {
+        var nav = new ReturnNavView("Grid", ll[0], ll[1]);
+        WatchUi.switchToView(nav, new SimpleBackDelegate(), WatchUi.SLIDE_LEFT);
+    }
 }

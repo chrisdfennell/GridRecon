@@ -109,6 +109,79 @@ module Settings {
         return useImperial() ? "Imperial (yd/mi)" : "Metric (m/km)";
     }
 
+    //! --- bearing angle unit ----------------------------------------------------
+    //!
+    //! Degrees (0–359) by default, or NATO mils (0–6399, 6400 to the circle) for the
+    //! artillery/tactical convention. The unit is purely a display/entry concern - all
+    //! the geodesy runs in true-north DEGREES, so mils are converted at the edges.
+    //! Declination stays in degrees regardless (that's how maps quote it).
+
+    const ANGLE_KEY = "angleUnit";          // 0 = degrees (default), 1 = mils
+    const MILS_PER_CIRCLE = 6400.0d;
+
+    function useMils() as Boolean {
+        return Storage.getValue(ANGLE_KEY) == 1;
+    }
+
+    function setUseMils(on as Boolean) as Void {
+        Storage.setValue(ANGLE_KEY, on ? 1 : 0);
+    }
+
+    function angleLabel() as String {
+        return useMils() ? "Mils (0–6399)" : "Degrees (0–359)";
+    }
+
+    //! Upper bound, zero-pad width and big-number suffix for a bearing spinner in the
+    //! chosen unit. (Mils carry no suffix: the NUMBER font has no letters, and the
+    //! prompt already says "mils".)
+    function bearingMax() as Number {
+        return useMils() ? 6399 : 359;
+    }
+
+    function bearingPad() as Number {
+        return useMils() ? 4 : 3;
+    }
+
+    function bearingSuffix() as String {
+        return useMils() ? "" : "°";
+    }
+
+    //! Letter unit drawn small beside the spinner number (the NUMBER font has no
+    //! letters); empty for degrees, whose "°" rides in the number font itself.
+    function bearingSmallSuffix() as String {
+        return useMils() ? "mil" : "";
+    }
+
+    //! A bearing the user entered (display unit) -> degrees, for the geodesy.
+    function bearingToDegrees(v as Number) as Double {
+        return useMils() ? (v.toDouble() * 360.0d / MILS_PER_CIRCLE) : v.toDouble();
+    }
+
+    //! A bearing in degrees -> the display unit's value, for seeding a spinner.
+    function bearingFromDegrees(deg as Double) as Number {
+        var d = norm360(deg);
+        if (useMils()) {
+            var mils = (d * MILS_PER_CIRCLE / 360.0d).toNumber();
+            return (mils > 6399) ? 6399 : mils;
+        }
+        var n = d.toNumber();
+        return (n > 359) ? 359 : n;
+    }
+
+    //! Format a bearing given in DEGREES for a status line, in the user's unit. Appends
+    //! "M" when `magnetic` (a declination offset is in effect). NOTE: this does not
+    //! apply the offset itself - pass an already-magnetic value with magnetic=true.
+    function formatBearing(deg as Double, magnetic as Boolean) as String {
+        var marker = magnetic ? "M" : "";
+        var d = norm360(deg);
+        if (useMils()) {
+            var mils = (d * MILS_PER_CIRCLE / 360.0d).toNumber();
+            if (mils > 6399) { mils = 6399; }
+            return mils.format("%04d") + " mil" + marker;
+        }
+        return d.toNumber().format("%03d") + "°" + marker;
+    }
+
     //! --- coordinate format -----------------------------------------------------
 
     function useLatLon() as Boolean {

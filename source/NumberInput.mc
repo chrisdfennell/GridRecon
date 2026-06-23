@@ -16,13 +16,14 @@ class NumberInputView extends WatchUi.View {
     private var _max as Number;
     private var _step as Number;
     private var _wrap as Boolean;
-    private var _suffix as String;     // drawn after the big number, e.g. "°" or " m"
-    private var _padWidth as Number;   // zero-pad the number to this width (0 = none)
-    private var _action as String;     // START button hint, e.g. "NEXT" or "DONE"
+    private var _suffix as String;      // big-font suffix the NUMBER font can render, e.g. "°"
+    private var _smallSuffix as String; // unit drawn small beside the number, e.g. "mil"/"m"/"yd"
+    private var _padWidth as Number;    // zero-pad the number to this width (0 = none)
+    private var _action as String;      // START button hint, e.g. "NEXT" or "DONE"
     private var _hints as HintTimer = new HintTimer();
 
     public function initialize(prompt as String, value as Number, min as Number, max as Number,
-                               step as Number, wrap as Boolean, suffix as String,
+                               step as Number, wrap as Boolean, suffix as String, smallSuffix as String,
                                padWidth as Number, action as String) {
         View.initialize();
         _prompt = prompt;
@@ -32,6 +33,7 @@ class NumberInputView extends WatchUi.View {
         _step = step;
         _wrap = wrap;
         _suffix = suffix;
+        _smallSuffix = smallSuffix;
         _padWidth = padWidth;
         _action = action;
     }
@@ -79,10 +81,26 @@ class NumberInputView extends WatchUi.View {
         dc.drawText(cx, (dc.getHeight() * 0.15).toNumber(), Graphics.FONT_TINY, _prompt,
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
-        // The big value.
+        // The big value, with its unit. A degree sign rides in the NUMBER font (it has
+        // that glyph); letter units like "mil"/"m"/"yd" don't exist in that font, so
+        // they're drawn small in a normal font beside the number, bottom-aligned.
         var shown = (_padWidth > 0) ? _value.format("%0" + _padWidth.format("%d") + "d") : _value.format("%d");
+        var numStr = shown + _suffix;
+        var top = cy - numH / 2;
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, cy - numH / 2, Graphics.FONT_NUMBER_MEDIUM, shown + _suffix, Graphics.TEXT_JUSTIFY_CENTER);
+        if (_smallSuffix.equals("")) {
+            dc.drawText(cx, top, Graphics.FONT_NUMBER_MEDIUM, numStr, Graphics.TEXT_JUSTIFY_CENTER);
+        } else {
+            var gap = 3;
+            var nw = dc.getTextWidthInPixels(numStr, Graphics.FONT_NUMBER_MEDIUM);
+            var sw = dc.getTextWidthInPixels(_smallSuffix, Graphics.FONT_XTINY);
+            var smallH = dc.getFontHeight(Graphics.FONT_XTINY);
+            var startX = cx - (nw + gap + sw) / 2;
+            dc.drawText(startX, top, Graphics.FONT_NUMBER_MEDIUM, numStr, Graphics.TEXT_JUSTIFY_LEFT);
+            dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(startX + nw + gap, top + numH - smallH, Graphics.FONT_XTINY, _smallSuffix,
+                Graphics.TEXT_JUSTIFY_LEFT);
+        }
 
         // One reminder that holding accelerates; the rest is labelled on the buttons.
         dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
