@@ -46,10 +46,21 @@ function fixAgeSec() as Number {
     return Time.now().value() - info.when.value();
 }
 
-//! True if we have a fresh, usable fix - not just a cached last-known position.
+//! Beyond this age a fix is treated as stale even if its last quality was good.
+//! `accuracy` keeps its old value after GPS is powered down, so without this an
+//! abandoned fix would still look "fresh" and a mark could be saved at a position
+//! the watch left long ago. With GPS held this never trips (fixes arrive every
+//! 1-2 s); it only catches a receiver that has stopped delivering.
+const FRESH_MAX_AGE_SEC = 30;
+
+//! True if we have a fresh, usable fix - not just a cached or frozen position.
 //! The compute tools gate on this so a mark/target isn't built on stale data.
 function hasFreshFix() as Boolean {
-    return fixAccuracy() >= Position.QUALITY_POOR;
+    if (fixAccuracy() < Position.QUALITY_POOR) {
+        return false;
+    }
+    var age = fixAgeSec();
+    return age < 0 || age <= FRESH_MAX_AGE_SEC;   // age < 0 = unknown, fall back to quality
 }
 
 //! Short status word for the current fix quality.
@@ -188,6 +199,129 @@ class MainDelegate extends ButtonNavDelegate {
 
     public function onMenu() as Boolean {
         openToolMenu();
+        return true;
+    }
+
+    public function onPreviousPage() as Boolean {
+        _view.bumpHints();
+        return true;
+    }
+
+    public function onNextPage() as Boolean {
+        _view.bumpHints();
+        return true;
+    }
+}
+
+//! "Mark this spot": a live screen that holds GPS itself and shows where you are
+//! right now, so the position you save is current - not a fix frozen at the spot
+//! where you opened the menu. SAVE captures the live fix and goes on to pick a name.
+class MarkView extends WatchUi.View {
+
+    private var _hints as HintTimer = new HintTimer();
+    private var _refresh as Timer.Timer?;   // redraw while the fix converges / ages
+    private var _shownAt as Number = 0;      // when this screen last appeared (ms)
+
+    public function initialize() {
+        View.initialize();
+    }
+
+    public function onShow() as Void {
+        _hints.reset();
+        gpsAcquire();
+        _shownAt = System.getTimer();
+        _refresh = new Timer.Timer();
+        _refresh.start(method(:onRefresh), 1000, true);
+    }
+
+    public function onHide() as Void {
+        _hints.stop();
+        gpsRelease();
+        if (_refresh != null) {
+            _refresh.stop();
+            _refresh = null;
+        }
+    }
+
+    public function onRefresh() as Void {
+        WatchUi.requestUpdate();
+    }
+
+    //! Re-show the hints (called when a button is pressed on this screen).
+    public function bumpHints() as Void {
+        _hints.reset();
+    }
+
+    public function onUpdate(dc as Dc) as Void {
+        dc.setColor(Graphics.COLOR_TRANSPARENT, Graphics.COLOR_BLACK);
+        dc.clear();
+
+        var w = dc.getWidth();
+        var h = dc.getHeight();
+        var cx = w / 2;
+        var cy = h / 2;
+        var vc = Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER;
+        var tinyH = dc.getFontHeight(Graphics.FONT_TINY);
+        var xtinyH = dc.getFontHeight(Graphics.FONT_XTINY);
+
+        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, (h * 0.13).toNumber(), Graphics.FONT_XTINY, "MARK HERE", vc);
+
+        var ll = currentLatLon();
+        // Only let the user save a fix that is fresh AND current - a stale or cached
+        // position would mark the wrong spot, which is the whole point of this screen.
+        if (ll == null || !hasFreshFix()) {
+            dc.setColor(Graphics.COLOR_YELLOW, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(cx, cy, Graphics.FONT_SMALL, "Waiting for GPS…", vc);
+            var waited = System.getTimer() - _shownAt;
+            dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
+            if (waited > 20000) {
+                dc.drawText(cx, cy + tinyH, Graphics.FONT_XTINY,
+                    "go outside, and check\nLocation/GPS is enabled", vc);
+            } else {
+                dc.drawText(cx, cy + tinyH, Graphics.FONT_XTINY, "step outside for a fix", vc);
+            }
+            drawButtonHint(dc, 0.68, true, "BACK", Graphics.COLOR_LT_GRAY, false);
+            return;
+        }
+
+        // Live position is the hero, exactly as the home screen shows it, so the user
+        // can confirm they have moved before committing the mark.
+        var grid = formatPosition(ll[0], ll[1]);
+        var half = drawGridFitted(dc, cx, cy, grid, Graphics.COLOR_WHITE, (w * 0.9).toNumber());
+
+        dc.setColor(Graphics.COLOR_LT_GRAY, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, cy - half - tinyH / 2, Graphics.FONT_TINY, "You are at", vc);
+
+        var q = fixAccuracy();
+        dc.setColor(gpsColor(q), Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, cy + half + xtinyH / 2 + 4, Graphics.FONT_XTINY, gpsText(q), vc);
+
+        // Always-on so the action is never hidden by the hint fade.
+        drawButtonHint(dc, 0.32, true, "SAVE", Graphics.COLOR_WHITE, false);
+        drawButtonHint(dc, 0.68, true, "BACK", Graphics.COLOR_LT_GRAY, false);
+    }
+}
+
+//! Mark-screen input: START saves the live position (then pick a name); BACK exits.
+//! UP/DOWN just bring the hints back.
+class MarkDelegate extends ButtonNavDelegate {
+
+    private var _view as MarkView;
+
+    public function initialize(view as MarkView) {
+        ButtonNavDelegate.initialize();
+        _view = view;
+    }
+
+    public function onSelect() as Boolean {
+        var ll = currentLatLon();
+        if (ll == null || !hasFreshFix()) {
+            // No current fix yet - the screen already says so; keep the hints up.
+            _view.bumpHints();
+            return true;
+        }
+        showMarkNameMenu(ll[0], ll[1]);
         return true;
     }
 

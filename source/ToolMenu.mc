@@ -41,7 +41,7 @@ class ToolMenuHandler {
                 "Point your compass at\nsomething. Read the\nbearing & how far it is.\nEnter them and you get\nits map grid.");
             WatchUi.pushView(v, new SimpleBackDelegate(), WatchUi.SLIDE_LEFT);
         } else if (id == :about) {
-            var v = new MessageView("GridRecon  v1.1.0",
+            var v = new MessageView("GridRecon  v1.2.0",
                 "Land navigation when\nGPS is off or jammed.\nMore tools coming.");
             WatchUi.pushView(v, new SimpleBackDelegate(), WatchUi.SLIDE_LEFT);
         }
@@ -238,15 +238,12 @@ class UnitsHandler {
     }
 }
 
-//! "Mark this spot": confirm a fresh fix, then pick a name to save it under.
+//! "Mark this spot": open a live screen that holds GPS and shows the current
+//! position, so the saved mark is where you are *now* - not a fix left frozen at
+//! the spot where the menu was opened. The screen waits for a fix and owns SAVE.
 function startMarkFlow() as Void {
-    var ll = currentLatLon();
-    if (ll == null || !hasFreshFix()) {
-        var v = new MessageView("No fresh GPS", "Wait for a solid fix,\nthen mark.");
-        WatchUi.pushView(v, new SimpleBackDelegate(), WatchUi.SLIDE_LEFT);
-        return;
-    }
-    showMarkNameMenu(ll[0], ll[1]);
+    var v = new MarkView();
+    WatchUi.pushView(v, new MarkDelegate(v), WatchUi.SLIDE_LEFT);
 }
 
 //! Present the preset-name menu that saves the given coordinates as a mark. Shared

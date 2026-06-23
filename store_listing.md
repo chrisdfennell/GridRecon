@@ -69,6 +69,13 @@ Forerunner 255S / 55, Instinct 2 / 2S / 2X / E / Crossover.
 land nav, MGRS, UTM, grid, bearing, azimuth, compass, navigation, tactical,
 hunting, SAR, military, backcountry, call for fire, target
 
+## What's new — v1.2.0
+- **Fixed: "Mark this spot" could save a stale position** — marking now opens a live screen that keeps GPS on and shows your position as you move, so the saved mark is where you are *now* (no need to reopen the home screen to "reload" GPS first).
+- **Buttons-only input mode** — ignore the touchscreen and drive everything with the buttons (Settings → Input).
+- **Lat/long coordinates** — show positions as decimal lat/long instead of MGRS (Settings → Coordinates).
+- **Fully editable "Go to a grid"** — the zone, band and 100 km square are editable too, so you can navigate to a grid outside your current square.
+- **Redesigned button hints** — a green arc with a vector icon sits exactly at each physical button.
+
 ## What's new — v1.1.0
 - **Go to a grid** — enter an MGRS grid and navigate straight to it (the inverse of Find-a-Target), seeded from your position so you only dial the digits that change.
 - **Magnetic declination** — set your local offset once and enter the magnetic bearing your compass reads; the app converts to true.
@@ -87,4 +94,4 @@ entry, and a responsive layout that scales across every supported screen.
 ## Notes for reviewers / accuracy
 GridRecon uses GPS for *your* position. Its value is computing a *target's* grid
 without needing a fix at the target. The fully GPS-denied tools (resection,
-dead-reckoning) are roadmap items and are not claimed as present in v1.1.
+dead-reckoning) are roadmap items and are not claimed as present in v1.2.

@@ -6,10 +6,15 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-06-22
+
 ### Added
 - **Button-only input mode** — **Tools → Settings → Input** lets you choose "Buttons only", which ignores the touchscreen and switches the menus to a custom button-driven list (since native menus can't refuse touch). Defaults to "Touch + buttons".
 - **Lat/long coordinates** — **Tools → Settings → Coordinates** toggles all displayed positions between MGRS and decimal lat/long.
 - **Fully editable "Go to a grid"** — the zone, band and 100 km square are now editable too (not just the easting/northing), so you can navigate to a grid outside your current square.
+
+### Fixed
+- **"Mark this spot" saved a stale position** — because GPS powered down when you left the home screen for the menu, the fix could freeze at the spot where you opened the menu, so a mark made after walking off saved the *old* location (you had to return to the home screen to "reload" GPS first). "Mark this spot" now opens a live screen that keeps GPS on and shows your position updating as you move; SAVE captures the position at that moment. A fix that has gone stale (GPS stopped delivering for 30 s) is also no longer treated as fresh, so it can't be saved or used to compute a target as if it were current.
 
 ### Changed
 - **Button hints redesigned** — each hint is now a short green arc on the bezel exactly at its physical button, with a small vector icon (menu / check / +/− / chevrons / back / save) instead of an inboard arrow and text word.
