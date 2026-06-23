@@ -131,9 +131,9 @@ module Settings {
         return useMils() ? "Mils (0–6399)" : "Degrees (0–359)";
     }
 
-    //! Upper bound, zero-pad width and big-number suffix for a bearing spinner in the
-    //! chosen unit. (Mils carry no suffix: the NUMBER font has no letters, and the
-    //! prompt already says "mils".)
+    //! Upper bound, zero-pad width and spinner unit for a bearing in the chosen unit.
+    //! The unit is what NumberInputView draws next to the value: "°" rides in the big
+    //! NUMBER font, "mil" (letters) is drawn small beside it.
     function bearingMax() as Number {
         return useMils() ? 6399 : 359;
     }
@@ -143,13 +143,7 @@ module Settings {
     }
 
     function bearingSuffix() as String {
-        return useMils() ? "" : "°";
-    }
-
-    //! Letter unit drawn small beside the spinner number (the NUMBER font has no
-    //! letters); empty for degrees, whose "°" rides in the number font itself.
-    function bearingSmallSuffix() as String {
-        return useMils() ? "mil" : "";
+        return useMils() ? "mil" : "°";
     }
 
     //! A bearing the user entered (display unit) -> degrees, for the geodesy.

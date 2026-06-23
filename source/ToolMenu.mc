@@ -101,7 +101,7 @@ class TargetLocationFlow {
         var seed = (magDeg != null) ? Settings.bearingFromDegrees(magDeg) : 0;
         var prompt = Settings.hasDeclination() ? "Bearing (MAG)" : "Bearing";
         var az = new NumberInputView(prompt, seed, 0, Settings.bearingMax(), 1, true,
-            Settings.bearingSuffix(), Settings.bearingSmallSuffix(), Settings.bearingPad(), "NEXT");
+            Settings.bearingSuffix(), Settings.bearingPad(), "NEXT");
         WatchUi.switchToView(az, new NumberInputDelegate(az, self.method(:onAzChosen)), WatchUi.SLIDE_LEFT);
     }
 
@@ -109,7 +109,7 @@ class TargetLocationFlow {
         _azMag = Settings.bearingToDegrees(value);   // display unit -> magnetic-frame degrees
         // Range entered in the user's units (metres or yards): step 10, no wrap.
         var unit = Settings.useImperial() ? "yd" : "m";
-        var rg = new NumberInputView("Distance", 100, 0, 9999, 10, false, "", unit, 0, "DONE");
+        var rg = new NumberInputView("Distance", 100, 0, 9999, 10, false, unit, 0, "DONE");
         WatchUi.switchToView(rg, new NumberInputDelegate(rg, self.method(:onRangeChosen)), WatchUi.SLIDE_LEFT);
     }
 
@@ -137,7 +137,7 @@ class DeclinationFlow {
 
     public function start() as Void {
         var v = new NumberInputView("Declination (E+)", Settings.declination(),
-            Settings.DECL_MIN, Settings.DECL_MAX, 1, false, "°", "", 0, "SAVE");
+            Settings.DECL_MIN, Settings.DECL_MAX, 1, false, "°", 0, "SAVE");
         WatchUi.pushView(v, new NumberInputDelegate(v, self.method(:onChosen)), WatchUi.SLIDE_LEFT);
     }
 
@@ -257,7 +257,7 @@ class GridPrecisionFlow {
 
     public function start() as Void {
         var v = new NumberInputView("Grid digits", Settings.gridDigits(),
-            Settings.GRID_MIN, Settings.GRID_MAX, 1, false, "", "", 0, "SAVE");
+            Settings.GRID_MIN, Settings.GRID_MAX, 1, false, "", 0, "SAVE");
         WatchUi.pushView(v, new NumberInputDelegate(v, self.method(:onChosen)), WatchUi.SLIDE_LEFT);
     }
 

@@ -13,7 +13,9 @@ Store assets live in `assets/` (regenerate with `tools/gen_store_assets.py` and
   - `screen_menu2.png` — "Mark as…" name picker
   - `screen_car.png` — Take me back (navigate to your car)
   - `screen_grid.png` — Go to a grid (digit entry) **(new for v1.1)**
-  - `screen_settings.png` — Settings: declination / grid precision / units **(new for v1.1)**
+  - `screen_settings.png` — Settings list: input / coordinates / bearings / declination / grid / units **(re-capture for v1.3: now includes Bearings)**
+  - `screen_sight.png` — "Point at target" compass bearing capture **(new for v1.3)**
+  - `screen_position.png` — set your position by grid when GPS is denied **(new for v1.3)**
 
 ---
 
@@ -37,8 +39,10 @@ bearing and range, and GridRecon gives you that thing's exact MGRS grid — read
 to call in, mark, or navigate to. No need for GPS *at the target*.
 
 **What it does**
-- **Find a target** — enter the bearing and distance to any point you can see and
-  get its MGRS grid, plus the back-azimuth to walk yourself home.
+- **Find a target** — sight the bearing off the watch's compass (or enter it) and
+  add the distance to any point you can see; GridRecon gives you its MGRS grid plus
+  the back-azimuth to walk yourself home. No GPS fix? Enter your own position by
+  grid and it still works.
 - **Go to a grid** — punch in an MGRS grid you've been given and navigate straight
   to it; seeded from your position, so you only dial the digits that change.
 - **Mark this spot / Take me back** — save named marks (Car, Camp, Trailhead…) and
@@ -47,7 +51,8 @@ to call in, mark, or navigate to. No need for GPS *at the target*.
   your screen, with a GPS fix-quality indicator so you know it's trustworthy.
 - **Magnetic declination** — set your local offset once and enter the magnetic
   bearing your compass actually reads; GridRecon converts to true north.
-- **Your settings** — grid precision (1 m to 10 km) and metric or imperial units.
+- **Your settings** — bearings in degrees or NATO mils, grid precision (1 m to
+  10 km), metric or imperial units, MGRS or lat/long, and a buttons-only mode.
 - **Built for buttons** — hold UP/DOWN to fly through values; no fiddly tapping.
 - **Runs everywhere** — one app, legible from a 280×280 fenix down to a 156×156
   Instinct, including monochrome displays.
