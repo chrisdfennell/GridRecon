@@ -41,7 +41,7 @@ class ToolMenuHandler {
                 "Point your compass at\nsomething. Read the\nbearing & how far it is.\nEnter them and you get\nits map grid.");
             WatchUi.pushView(v, new SimpleBackDelegate(), WatchUi.SLIDE_LEFT);
         } else if (id == :about) {
-            var v = new MessageView("GridRecon  v1.2.0",
+            var v = new MessageView("GridRecon  v1.3.0",
                 "Land navigation when\nGPS is off or jammed.\nMore tools coming.");
             WatchUi.pushView(v, new SimpleBackDelegate(), WatchUi.SLIDE_LEFT);
         }

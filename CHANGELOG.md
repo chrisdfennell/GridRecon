@@ -6,6 +6,20 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-06-23
+
+### Added
+- **Find a target without GPS** — when there's no fresh fix, "Find a target" lets you enter your current position by grid (seeded from the last-known fix) and still computes the target's grid. This is the pure-geometry tool the "GPS off or jammed" premise is about — it no longer dead-ends when the receiver has nothing.
+- **Sight a target with the compass** — "Find a target" can capture the bearing straight off the watch's magnetometer: aim the watch, press **SET**, then fine-tune on the spinner. It reads the compass while you're standing still (never the GPS course, which is your *direction of travel*, not where you're pointed) and falls back to manual entry on devices without a compass.
+- **Mils** — **Tools → Settings → Bearings** switches bearing entry and display between degrees (0–359) and NATO mils (0–6399). Declination stays in degrees (that's how maps quote it).
+
+### Fixed
+- **Lat/long could overflow on small screens** — decimal lat/long now wraps to two lines instead of being clipped at the edges when it won't fit on one (the two-line fallback previously only handled the four-part MGRS shape).
+- **Compass arrow trusted a possibly-bad heading** — the "Take me back" heading now uses the GPS course while you're moving (true-north and reliable) and falls back to the magnetometer only at a standstill, instead of always trusting the wrist compass — which could point confidently wrong and left the GPS path unused on compass devices.
+
+### Changed
+- **Spinner units render reliably** — the unit beside the big number ("mil", "m", "yd") is now drawn as a small label in a normal font, so it no longer depends on the NUMBER font happening to contain letters.
+
 ## [1.2.0] - 2026-06-22
 
 ### Added

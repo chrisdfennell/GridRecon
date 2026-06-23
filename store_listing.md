@@ -69,6 +69,11 @@ Forerunner 255S / 55, Instinct 2 / 2S / 2X / E / Crossover.
 land nav, MGRS, UTM, grid, bearing, azimuth, compass, navigation, tactical,
 hunting, SAR, military, backcountry, call for fire, target
 
+## What's new — v1.3.0
+- **Find a target without GPS** — no fix? Enter your position by grid (seeded from your last-known fix) and still compute the target's grid.
+- **Sight the target with the compass** — point the watch, press SET, and the bearing is captured from the magnetometer; fine-tune it on the spinner.
+- **NATO mils** — enter and read bearings in mils (0–6399) instead of degrees (Settings → Bearings).
+
 ## What's new — v1.2.0
 - **Fixed: "Mark this spot" could save a stale position** — marking now opens a live screen that keeps GPS on and shows your position as you move, so the saved mark is where you are *now* (no need to reopen the home screen to "reload" GPS first).
 - **Buttons-only input mode** — ignore the touchscreen and drive everything with the buttons (Settings → Input).
@@ -93,5 +98,6 @@ entry, and a responsive layout that scales across every supported screen.
 
 ## Notes for reviewers / accuracy
 GridRecon uses GPS for *your* position. Its value is computing a *target's* grid
-without needing a fix at the target. The fully GPS-denied tools (resection,
-dead-reckoning) are roadmap items and are not claimed as present in v1.2.
+without needing a fix at the target — and, as of v1.3, "Find a target" can run with
+no fix at all by entering your own position by grid. The remaining GPS-denied tools
+(resection, dead-reckoning) are roadmap items and are not claimed as present in v1.3.
