@@ -164,8 +164,9 @@ var gLastCourseAt as Number = 0;
 //! tried first once you're above a walking speed. Just after you slow or stop we keep
 //! showing that last good course for COURSE_HOLD_MS - so a pause to read the watch
 //! holds the arrow steady instead of jumping to the compass. Only once that's stale do
-//! we fall back to the magnetometer compass - its reading is magnetic, so we add the
-//! declination offset to bring it to true (no offset set = a no-op).
+//! we fall back to the magnetometer compass - whose Sensor.Info.heading is already
+//! TRUE-north referenced (the SDK contract, independent of the watch's North Reference
+//! display setting), so we use it as-is.
 //! Null when nothing is usable - the caller then shows the "walk a few steps" hint.
 function headingDeg() as Double? {
     var info = $.gLastInfo;
@@ -180,7 +181,7 @@ function headingDeg() as Double? {
     }
     var s = Sensor.getInfo();
     if (s != null && s.heading != null) {
-        return Settings.magToTrue(s.heading.toDouble() * Geo.RAD2DEG);
+        return norm360(s.heading.toDouble() * Geo.RAD2DEG);
     }
     return null;
 }
@@ -191,15 +192,17 @@ function norm360(d as Double) as Double {
     return d;
 }
 
-//! Raw MAGNETIC heading from the magnetometer, in degrees [0,360), or null if there's
-//! no compass / no reading yet. Unlike headingDeg() this never falls back to GPS
-//! course (which is your direction of travel, not where the watch is pointed) and it
-//! does NOT apply declination - it's the reading you'd sight off a baseplate compass,
-//! which is exactly what "Find a target" wants to capture.
+//! MAGNETIC heading in degrees [0,360), or null if there's no compass / no reading yet.
+//! Sensor.Info.heading is TRUE-north referenced (the SDK contract, regardless of the
+//! watch's North Reference display setting), so we convert it to magnetic with the
+//! declination offset - the reading you'd sight off a baseplate compass, and the frame
+//! "Find a target" and the compass screen capture and display in (no offset = a no-op).
+//! Unlike headingDeg() this never falls back to GPS course - that's your direction of
+//! travel, not where the watch is pointed.
 function compassMagDeg() as Double? {
     var s = Sensor.getInfo();
     if (s != null && s.heading != null) {
-        return norm360(s.heading.toDouble() * Geo.RAD2DEG);
+        return Settings.trueToMag(s.heading.toDouble() * Geo.RAD2DEG);
     }
     return null;
 }

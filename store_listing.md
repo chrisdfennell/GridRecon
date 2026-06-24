@@ -92,6 +92,9 @@ Forerunner 255S / 55, Instinct 2 / 2S / 2X / E / Crossover.
 hiking, backpacking, camping, backcountry, land nav, map and compass, MGRS, UTM,
 USNG, topo, grid, bearing, azimuth, compass, navigation, orienteering, hunting, trail
 
+## What's new — v1.4.2
+- **Fixed compass declination** — with a declination offset set, the compass heading (Compass screen, the navigation arrow, and compass-sighted bearings) was off by the declination angle. It now reads correctly.
+
 ## What's new — v1.4.1
 - **Compass** — Tools → Compass: a live heading dial (rotating card, cardinals, big readout) that works with GPS off.
 - **Steadier "Take me back" arrow** — it now holds your GPS heading through brief pauses instead of jumping to the wrist compass.

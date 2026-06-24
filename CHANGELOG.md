@@ -6,6 +6,11 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.4.2] - 2026-06-24
+
+### Fixed
+- **Declination was applied the wrong way to the watch compass** — `Sensor.Info.heading` is true-north referenced, but the code treated it as magnetic. With a declination offset set, the Compass screen, the "Take me back" arrow at a standstill, and the compass-sighted bearing in "Find a target" / "Resection" were all off by the declination angle (e.g. 20° at magnetic north with a 20° offset). The heading is now read as true and converted to magnetic for display/capture, so it reads correctly. No effect when declination is 0.
+
 ## [1.4.1] - 2026-06-24
 
 ### Added
