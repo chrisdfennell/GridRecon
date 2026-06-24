@@ -4,7 +4,6 @@ import Toybox.Lang;
 import Toybox.Math;
 import Toybox.Position;
 import Toybox.Sensor;
-import Toybox.System;
 import Toybox.Timer;
 import Toybox.WatchUi;
 
@@ -144,39 +143,20 @@ class ReturnNavView extends WatchUi.View {
 //! steer the arrow with it - the compass takes over, or we ask for a few steps.
 const MOVE_MIN_MPS = 1.0d;
 
-//! How long a good GPS course stays trusted after you slow down. Pausing to read the
-//! watch shouldn't snap the arrow back to a possibly-uncalibrated magnetometer, so we
-//! hold the last paced track for a few seconds first. Short enough that a real turn
-//! while standing still still falls through to the live compass.
-const COURSE_HOLD_MS = 8000;
-
-//! Last GPS course we trusted (true degrees) and when we captured it (System.getTimer
-//! ms). Latched only while genuinely moving, so what we hold is never low-speed noise.
-var gLastCourse as Double? = null;
-var gLastCourseAt as Number = 0;
-
 //! Heading in degrees TRUE - the same frame as the bearing to the target, so the
 //! arrow's relative angle is correct.
 //!
 //! While you're moving the GPS course is the trustworthy source: it's already true
 //! north and a paced ground track can't be thrown off the way a wrist-borne
 //! magnetometer can (uncalibrated, near metal, or swung by arm motion), so it's
-//! tried first once you're above a walking speed. Just after you slow or stop we keep
-//! showing that last good course for COURSE_HOLD_MS - so a pause to read the watch
-//! holds the arrow steady instead of jumping to the compass. Only once that's stale do
-//! we fall back to the magnetometer compass - its reading is magnetic, so we add the
-//! declination offset to bring it to true (no offset set = a no-op).
-//! Null when nothing is usable - the caller then shows the "walk a few steps" hint.
+//! tried first once you're above a walking speed. Standing still the GPS course is
+//! just noise, so we fall back to the magnetometer compass - its reading is magnetic,
+//! so we add the declination offset to bring it to true (no offset set = a no-op).
+//! Null when neither is usable - the caller then shows the "walk a few steps" hint.
 function headingDeg() as Double? {
     var info = $.gLastInfo;
     if (info != null && info.heading != null && info.speed != null && info.speed >= MOVE_MIN_MPS) {
-        var course = norm360(info.heading.toDouble() * Geo.RAD2DEG);
-        $.gLastCourse = course;
-        $.gLastCourseAt = System.getTimer();
-        return course;
-    }
-    if ($.gLastCourse != null && (System.getTimer() - $.gLastCourseAt) < COURSE_HOLD_MS) {
-        return $.gLastCourse;
+        return norm360(info.heading.toDouble() * Geo.RAD2DEG);
     }
     var s = Sensor.getInfo();
     if (s != null && s.heading != null) {

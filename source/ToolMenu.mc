@@ -13,7 +13,6 @@ function openToolMenu() as Void {
         {"label" => "Go to a grid",   "sub" => "navigate to an MGRS grid", "id" => :gogrid},
         {"label" => "Grid to grid",   "sub" => "range & bearing between", "id" => :g2g},
         {"label" => "Resection",      "sub" => "fix your position",      "id" => :resection},
-        {"label" => "Compass",        "sub" => "live heading",           "id" => :compass},
         {"label" => "Sun",            "sub" => "sunrise & sunset",       "id" => :sun},
         {"label" => "Settings",       "sub" => "input · coords · units", "id" => :settings},
         {"label" => "Help",           "sub" => "how this works",         "id" => :help},
@@ -36,9 +35,6 @@ class ToolMenuHandler {
             new GridToGridFlow().start();
         } else if (id == :resection) {
             new ResectionFlow().start();
-        } else if (id == :compass) {
-            var cv = new CompassView();
-            WatchUi.pushView(cv, new SimpleBackDelegate(), WatchUi.SLIDE_LEFT);
         } else if (id == :sun) {
             var sv = new SunView();
             WatchUi.pushView(sv, new SimpleBackDelegate(), WatchUi.SLIDE_LEFT);
@@ -55,7 +51,7 @@ class ToolMenuHandler {
                 "Point your compass at\nsomething. Read the\nbearing & how far it is.\nEnter them and you get\nits map grid.");
             WatchUi.pushView(v, new SimpleBackDelegate(), WatchUi.SLIDE_LEFT);
         } else if (id == :about) {
-            var v = new MessageView("GridRecon  v1.4.1",
+            var v = new MessageView("GridRecon  v1.4.0",
                 "Land navigation when\nGPS is off or jammed.\nMore tools coming.");
             WatchUi.pushView(v, new SimpleBackDelegate(), WatchUi.SLIDE_LEFT);
         }
