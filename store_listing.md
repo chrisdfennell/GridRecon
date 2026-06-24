@@ -18,7 +18,8 @@ Store assets live in `assets/` (regenerate with `tools/gen_store_assets.py` and
   - `screen_position.png` — set your position by grid when there's no GPS fix **(new for v1.3)**
   - `screen_resection.png` — Resection result: your computed position as a grid **(new for v1.4)**
   - `screen_sun.png` — Sun: sunrise / sunset / day length **(new for v1.4)**
-  - `screen_main.png` re-capture for v1.4 also shows the elevation line; `screen_menu.png` re-capture now includes "Grid → grid", "Resection" and "Sun"
+  - `screen_compass.png` — Compass: live heading dial **(new for v1.4.1)**
+  - `screen_main.png` re-capture for v1.4 also shows the elevation line; `screen_menu.png` re-capture now includes "Grid → grid", "Resection", "Sun" and (v1.4.1) "Compass"
 
 ---
 
@@ -57,6 +58,9 @@ your group, or navigate to. No GPS fix needed *at the spot itself*.
 - **Mark this spot / Take me back** — save named marks (Camp, Car, Trailhead,
   Water…) and navigate back with a heading arrow, live distance, and a buzz on
   arrival.
+- **Compass** — a full-screen heading dial with the cardinals and a big read-out,
+  for a quick "which way am I pointed?"; magnetometer-based, so it works with GPS
+  off or jammed.
 - **Live position** — your current location as a clean grid, auto-sized to your
   screen, with a GPS fix-quality indicator and your elevation so you know you can
   trust it — handy to read straight onto a paper map.
@@ -124,7 +128,7 @@ entry, and a responsive layout that scales across every supported screen.
 
 ## Permissions
 - Positioning (GPS) — to show your current location and navigate to marks/grids.
-- Sensor — to read the compass heading for the "Take me back" navigation arrow.
+- Sensor — to read the compass heading for the "Take me back" navigation arrow and the Compass screen.
 
 ## Notes for reviewers / accuracy
 GridRecon uses GPS for *your* position. Its value is computing the grid of a distant
