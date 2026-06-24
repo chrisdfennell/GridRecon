@@ -88,6 +88,10 @@ Forerunner 255S / 55, Instinct 2 / 2S / 2X / E / Crossover.
 hiking, backpacking, camping, backcountry, land nav, map and compass, MGRS, UTM,
 USNG, topo, grid, bearing, azimuth, compass, navigation, orienteering, hunting, trail
 
+## What's new — v1.4.1
+- **Compass** — Tools → Compass: a live heading dial (rotating card, cardinals, big readout) that works with GPS off.
+- **Steadier "Take me back" arrow** — it now holds your GPS heading through brief pauses instead of jumping to the wrist compass.
+
 ## What's new — v1.4.0
 - **Resection** — fix your own position with no GPS: sight two known landmarks, enter each one's grid and bearing, and GridRecon crosses the back-bearings to put you on the map. Save the result as a mark.
 - **Grid → grid** — enter two grids and get the range and bearing between them (and the back-azimuth).

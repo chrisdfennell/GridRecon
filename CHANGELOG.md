@@ -6,6 +6,14 @@ follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-06-24
+
+### Added
+- **Compass** — **Tools → Compass** shows a live heading dial: a rotating card with the cardinals at their real-world angles, a fixed index marking the way you're facing, and the heading read out big with its 16-point name. Magnetometer-only, so it works with GPS off or jammed, and degrades to a clear "No compass" message on devices without one.
+
+### Changed
+- **"Take me back" arrow holds steady through brief pauses** — once you're moving and the arrow has locked onto the GPS course, it now keeps that heading for a few seconds after you slow or stop, instead of immediately snapping back to a possibly-uncalibrated wrist compass. Pausing to read the watch no longer makes the arrow jump.
+
 ## [1.4.0] - 2026-06-23
 
 ### Added
